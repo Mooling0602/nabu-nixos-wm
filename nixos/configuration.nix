@@ -2,7 +2,6 @@
 # Desktop environment, input methods, fonts etc. are intentionally left out —
 # configure them yourself on the running system.
 {
-  config,
   pkgs,
   lib,
   ...
@@ -65,6 +64,7 @@ in
 {
   imports = [
     ./hardware-nabu.nix
+    ./uki.nix
     ./rootfs-image.nix
   ];
 

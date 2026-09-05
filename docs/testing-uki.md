@@ -48,6 +48,6 @@ sudo cp /tmp/nabu-*.efi /boot/efi/EFI/nixos/
 刷入 rootfs 镜像后，UKI 的 `root=PARTLABEL=linux` 会挂载 ext4 根分区，
 进入 NixOS activation（首次开机自动完成 /etc、用户、服务等初始化）。
 
-```Shell
-# 之后的系统更新：重新构建 UKI + rootfs 内 toplevel，替换 ESP 上的 .efi 即可
-```
+之后的系统更新无需再手动替换 ESP 上的 `.efi`：在设备上执行
+`nixos-rebuild switch` 会自动重建并部署 UKI，详见
+[`docs/usage-on-device.md`](./usage-on-device.md)。

@@ -22,8 +22,7 @@ done
 if [ "$mode" != rootfs ]; then
   nix build .#nabu-uki --out-link "$OUT_DIR/nix-uki"
   nix build .#nabu-esp --out-link "$OUT_DIR/nix-esp"
-  cp -L "$OUT_DIR/nix-uki/nabu.efi" "$OUT_DIR/nabu.efi"
-  cp "$OUT_DIR/nix-uki/cmdline" "$OUT_DIR/cmdline"
+  cp -L "$OUT_DIR/nix-uki"/*.efi "$OUT_DIR/nabu.efi"
   cp --reflink=auto --sparse=always "$OUT_DIR/nix-esp/esp.img" "$OUT_DIR/esp.img"
   cp "$OUT_DIR/nix-esp/efi-files.zip" "$OUT_DIR/efi-files.zip"
 fi

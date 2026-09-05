@@ -40,12 +40,32 @@
   # console=tty0 + loglevel=7 above so a failure still leaves text on screen.
   boot.plymouth.enable = true;
 
-  # No bootloader managed from inside the system: the ESP is populated by
-  # rEFInd + our UKI artifact (see packages.nabu-uki), built off-device.
+  # The ESP is owned by the rEFInd dualboot layout (rEFInd + Android entry);
+  # NixOS only installs its UKI into it.  nixos-rebuild boot|switch runs this
+  # hook, which deploys the freshly built UKI under the stable rEFInd menu
+  # entry /EFI/nixos/nabu.efi, keeping the previous UKI as a fallback.
   boot.loader.external = {
     enable = true;
-    installHook = pkgs.writeShellScript "no-op-boot-install" ''
-      echo "nabu: ESP/UKI is managed by the flake's nabu-uki output, nothing to do."
+    installHook = pkgs.writeShellScript "nabu-install-uki" ''
+      set -euo pipefail
+
+      coreutils="${pkgs.coreutils}"
+      uki="${config.system.build.uki}/${config.system.boot.loader.ukiFile}"
+      dst_dir="/boot/efi/EFI/nixos"
+      dst="$dst_dir/nabu.efi"
+
+      # Keep the currently installed UKI as a "previous kernel" fallback.  If a
+      # newly installed kernel fails to boot, rEFInd's auto-scan lists
+      # nabu-previous.efi, so the older, working kernel can still be chosen
+      # from the boot menu.  cmp skips the backup when nothing changed.
+      if [ -e "$dst" ] && ! "$coreutils/bin/cmp" -s "$uki" "$dst"; then
+        "$coreutils/bin/install" -m644 "$dst" "$dst_dir/nabu-previous.efi"
+      fi
+
+      # Install the new UKI under the stable rEFInd menu entry.
+      "$coreutils/bin/install" -Dm644 "$uki" "$dst"
+
+      echo "nabu: installed $uki -> $dst (previous kept as nabu-previous.efi)"
     '';
   };
 
