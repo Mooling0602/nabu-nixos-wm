@@ -30,8 +30,38 @@
   };
 
   config = {
-    # Grow the partition + resize the fs on first boot
-    boot.growPartition = true;
+    # Like nixpkgs' sd-image, import the copied closure into the target Nix
+    # database on first boot.  Merely copying /nix/store is enough for stage-2
+    # to start, but leaves nixos-rebuild and garbage collection unaware of the
+    # installed system.
+    systemd.services.register-nix-paths = {
+      description = "Register Nix Store Paths";
+      unitConfig = {
+        DefaultDependencies = false;
+        ConditionPathExists = "/nix-path-registration";
+      };
+      wantedBy = [ "sysinit.target" ];
+      before = [
+        "sysinit.target"
+        "shutdown.target"
+        "nix-daemon.socket"
+        "nix-daemon.service"
+      ];
+      after = [ "local-fs.target" ];
+      conflicts = [ "shutdown.target" ];
+      restartIfChanged = false;
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        ${lib.getExe' config.nix.package.out "nix-store"} --load-db < /nix-path-registration
+        touch /etc/NIXOS
+        ${lib.getExe' config.nix.package.out "nix-env"} \
+          -p /nix/var/nix/profiles/system --set /run/current-system
+        rm -f /nix-path-registration
+      '';
+    };
 
     system.build.rootfs-image =
       let
@@ -62,6 +92,7 @@
           while read -r storePath; do
             cp -prd "$storePath" "$root/nix/store/"
           done < "${closureInfo}/store-paths"
+          cp "${closureInfo}/registration" "$root/nix-path-registration"
 
           # -> Under fakeroot so mke2fs records root:root ownership (mirrors
           #    nixpkgs sd-image).  Without this, an unprivileged build leaves

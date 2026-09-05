@@ -7,7 +7,6 @@
 # PARTLABEL=linux (ext4), ESP by PARTLABEL=esp.
 {
   config,
-  lib,
   pkgs,
   ...
 }:
@@ -53,12 +52,20 @@
   # Generic initramfs (not hostonly) with forced UFS drivers — the image is
   # built off-device and the rootfs lives on the UFS `linux` partition.
   # Mirrors the reference dracut config: hostonly=no + force_drivers ufs_qcom.
-  boot.initrd.includeDefaultModules = true;
+  # NixOS' default set is PC-oriented (AHCI/PATA/NVMe and assorted USB HID).
+  # The Fedora-aligned nabu kernel intentionally does not provide several of
+  # those drivers, and the root device is UFS.  Keep this initrd generic for
+  # nabu hardware through the explicit list below, not generic for PCs.
+  boot.initrd.includeDefaultModules = false;
+  # Qualcomm's secure environment is not exposed as a PC-style TPM.  The
+  # systemd package enables TPM units by default and would otherwise inject
+  # tpm-tis/tpm-crb into the initrd, neither of which exists in this kernel.
+  boot.initrd.systemd.tpm2.enable = false;
+  systemd.tpm2.enable = false;
   boot.initrd.availableKernelModules = [
     "ufs_qcom"
     "ufshcd_pltfrm"
     "ufshcd_core"
-    "ufshcd_pci"
     # Early display stack: no simple-framebuffer node, the panel is driven by
     # the MSM/KMS DRM driver, so it must be present in the initramfs for
     # plymouth/fbcon to light the screen before the rootfs is mounted.
@@ -66,11 +73,19 @@
     "drm_kms_helper"
     "msm"
     "panel_novatek_nt36523"
-    "backlight_ktz8866"
+    "ktz8866"
   ];
   boot.initrd.kernelModules = [
     "ufs_qcom"
     "ufshcd_pltfrm"
+  ];
+  # MSM DRM is built into the kernel, so module-closure based firmware
+  # discovery cannot see its runtime requests. Include the Adreno 640 blobs
+  # explicitly so the display stack can initialize before mounting rootfs.
+  boot.initrd.extraFirmwarePaths = [
+    "qcom/a630_sqe.fw"
+    "qcom/a640_gmu.bin"
+    "qcom/sm8150/xiaomi/nabu/a640_zap.mbn"
   ];
 
   # == Filesystems ============================================================
@@ -80,6 +95,9 @@
     options = [
       "rw"
       "errors=remount-ro"
+      # The raw ext4 image is flashed into an already-sized GPT partition.
+      # Grow only the filesystem to that partition, exactly like Fedora's
+      # fstab; boot.growPartition would instead try to alter the device GPT.
       "x-systemd.growfs"
     ];
   };
@@ -97,69 +115,27 @@
   hardware.enableRedistributableFirmware = true;
   hardware.firmware = [ pkgs.xiaomi-nabu-firmware ];
 
-  # == Qualcomm remoteproc service stack ======================================
-  # qrtr-ns first, then pd-mapper, then rmtfs/tqftpserv/q6voiced.
-  systemd.services.qrtr-ns = {
-    description = "Qualcomm IPC router name service";
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      ExecStart = "${lib.getExe' pkgs.qrtr "qrtr-ns"}";
-      Restart = "always";
-      RestartSec = "1";
-    };
-  };
-
-  systemd.services.pd-mapper = {
-    description = "Qualcomm Protection Domain mapper";
-    after = [ "qrtr-ns.service" ];
-    requires = [ "qrtr-ns.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      ExecStart = "${lib.getExe pkgs.pd-mapper}";
-      Restart = "always";
-      RestartSec = "1";
-    };
-  };
-
+  # == Qualcomm remoteproc services ==========================================
+  # Match Fedora's nabu preset: Linux 6.17 provides the QRTR name service and
+  # PD mapper in-kernel, while userspace only runs rmtfs and tqftpserv.
   systemd.services.rmtfs = {
-    description = "Qualcomm remote file system service";
-    after = [
-      "qrtr-ns.service"
-      "pd-mapper.service"
-    ];
-    requires = [ "qrtr-ns.service" ];
+    description = "Qualcomm remotefs service";
+    before = [ "NetworkManager.service" ];
     wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathExists = "/dev/qcom_rmtfs_mem1";
     serviceConfig = {
-      ExecStart = "${lib.getExe pkgs.rmtfs}";
+      ExecStart = "${pkgs.rmtfs}/bin/rmtfs -r -P -s";
       Restart = "always";
       RestartSec = "1";
     };
   };
 
   systemd.services.tqftpserv = {
-    description = "Qualcomm TFTP service (remoteproc firmware loader)";
-    after = [ "qrtr-ns.service" ];
-    requires = [ "qrtr-ns.service" ];
+    description = "QRTR TFTP service";
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
-      ExecStart = "${lib.getExe pkgs.tqftpserv}";
+      ExecStart = "${pkgs.tqftpserv}/bin/tqftpserv";
       Restart = "always";
-      RestartSec = "1";
-    };
-  };
-
-  systemd.services.q6voiced = {
-    description = "Qualcomm ADSP voice service";
-    after = [
-      "qrtr-ns.service"
-      "pd-mapper.service"
-    ];
-    requires = [ "qrtr-ns.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      ExecStart = "${lib.getExe pkgs.q6voiced}";
-      Restart = "always";
-      RestartSec = "1";
     };
   };
 
@@ -177,13 +153,12 @@
 
   # ath10k_snoc hangs the platform on warm reboot if not unloaded first
   systemd.services.ath10k-shutdown = {
-    description = "Unload ath10k WiFi modules on shutdown";
-    before = [
-      "shutdown.target"
-      "reboot.target"
+    description = "Nabu - Disable WiFi Modules on Shutdown";
+    after = [
+      "network-online.target"
+      "graphical.target"
     ];
     wantedBy = [ "default.target" ];
-    unitConfig.DefaultDependencies = false;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

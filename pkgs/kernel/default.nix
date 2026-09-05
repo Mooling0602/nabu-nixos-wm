@@ -6,6 +6,7 @@
   buildLinux,
   # device-specific fragment merged on top of the upstream sm8150 fragment
   extraFragment ? ./configs/extra-sm8150.config,
+  requiredConfig ? ./configs/required-nabu.config,
   ...
 }@args:
 
@@ -92,9 +93,7 @@ let
   };
 
   # Patch adding the merged config as a named defconfig, so nixpkgs'
-  # buildLinux can consume it through its `defconfig` parameter (its
-  # generate-config.pl pass then only layers nixpkgs' common settings on
-  # top instead of re-deriving the whole config interactively).
+  # buildLinux can consume it through its `defconfig` parameter.
   defconfigPatch = buildPackages.stdenv.mkDerivation {
     pname = "nabu-defconfig-patch";
     inherit version;
@@ -112,47 +111,79 @@ let
       } > $out
     '';
   };
+  kernel = buildLinux (args // {
+    inherit version modDirVersion src;
+    defconfig = "nabu_defconfig";
+
+    # Keep the final config aligned with the Fedora RPM.  buildLinux defaults
+    # to applying nixpkgs' common kernel config and answering every otherwise
+    # optional Kconfig prompt with `m`; on this downstream arm64 tree that
+    # enables thousands of unrelated drivers (DVB, MTD, other SoCs, ...),
+    # substantially changes the reference config and makes a cross build take
+    # hours.  The Fedora-derived defconfig already boots a systemd userspace;
+    # the strict postConfigure check below covers nabu's boot invariants.
+    enableCommonConfig = false;
+    autoModules = false;
+
+    kernelPatches = (args.kernelPatches or [ ]) ++ [
+      {
+        name = "nabu-fedora-runtime-fixes";
+        patch = ./patches/0001-nabu-match-fedora-runtime-fixes.patch;
+      }
+      {
+        name = "nabu-defconfig";
+        patch = defconfigPatch;
+      }
+    ];
+
+    # The merged defconfig already disables SPI_MT65XX. LOCALVERSION_AUTO keeps
+    # the release at "${modDirVersion}".
+    # NR_CPUS: nixpkgs' common config forces 384; the device has 8 CPUs.
+    #
+    # Console: FRAMEBUFFER_CONSOLE defaults to DRM_FBDEV_EMULATION, neither of
+    # which the sm8150 fragment or arm64 defconfig enable explicitly. Without a
+    # boot text console the nabu panel never shows kernel logs (no
+    # simple-framebuffer node in the DTB), so the device boots to a black
+    # screen. Force the fbdev/KMS console stack on (`console=tty0` + fbcon).
+    extraConfig = ''
+      LOCALVERSION_AUTO n
+      NR_CPUS 8
+      # fbcon text console (arm64 defconfig leaves these unset -> n by default)
+      SYSFB y
+      FRAMEBUFFER_CONSOLE y
+      FRAMEBUFFER_CONSOLE_ROTATION y
+      DRM_FBDEV_EMULATION y
+      # NixOS' default firewall uses these xtables matches, which the Fedora
+      # fragment omits. Keep both IPv4 and IPv6 anti-spoofing rules functional.
+      NETFILTER_XT_MATCH_PKTTYPE m
+      IP_NF_MATCH_RPFILTER m
+      IP6_NF_MATCH_RPFILTER m
+    '';
+
+    # With nixpkgs' common config disabled, every remaining override is ours
+    # and a missing/renamed Kconfig symbol is a real error.
+    ignoreConfigErrors = false;
+
+    extraMeta = {
+      branch = "sm8150/6.17";
+      description = "Mainline Linux kernel for SM8150 devices (Xiaomi Pad 5 / nabu)";
+      maintainers = with lib.maintainers; [ ];
+      platforms = [ "aarch64-linux" ];
+    };
+  });
 in
-buildLinux (args
-  // {
-  inherit version modDirVersion src;
-  defconfig = "nabu_defconfig";
-  kernelPatches = args.kernelPatches or [ ] ++ [
-    {
-      name = "nabu-defconfig";
-      patch = defconfigPatch;
-    }
-  ];
-
-  # Belt and braces: the merged defconfig already disables SPI_MT65XX; the
-  # interactive refinement pass could only re-enable it if asked — pin the
-  # answer as well. LOCALVERSION_AUTO keeps the release at "${modDirVersion}".
-  # NR_CPUS: nixpkgs' common config forces 384; the device has 8 CPUs.
-  #
-  # Console: FRAMEBUFFER_CONSOLE defaults to DRM_FBDEV_EMULATION, neither of
-  # which the sm8150 fragment or arm64 defconfig enable explicitly. Without a
-  # boot text console the nabu panel never shows kernel logs (no
-  # simple-framebuffer node in the DTB), so the device boots to a black
-  # screen. Force the fbdev/KMS console stack on (`console=tty0` + fbcon).
-  extraConfig = ''
-    SPI_MT65XX n
-    LOCALVERSION_AUTO n
-    NR_CPUS 8
-    # fbcon text console (arm64 defconfig leaves these unset -> n by default)
-    SYSFB y
-    FRAMEBUFFER_CONSOLE y
-    DRM_FBDEV_EMULATION y
+kernel.overrideAttrs (previousAttrs: {
+  # Independently verify the resolved config, including implied dependencies.
+  postConfigure = (previousAttrs.postConfigure or "") + ''
+    echo ">>> checking nabu boot-critical kernel configuration"
+    while IFS= read -r requirement; do
+      case "$requirement" in
+        ""|'#'*) continue ;;
+      esac
+      if ! grep -Fqx "$requirement" "$buildRoot/.config"; then
+        echo "ERROR: required nabu kernel setting is missing: $requirement" >&2
+        exit 1
+      fi
+    done < ${requiredConfig}
   '';
-
-  # The sm8150 fork's Kconfig differs from mainline expectations (e.g.
-  # renamed DRM_NOVA) and nixpkgs' common config may reference symbols the
-  # fork dropped; don't hard-fail on those.
-  ignoreConfigErrors = true;
-
-  extraMeta = {
-    branch = "sm8150/6.17";
-    description = "Mainline Linux kernel for SM8150 devices (Xiaomi Pad 5 / nabu)";
-    maintainers = with lib.maintainers; [ ];
-    platforms = [ "aarch64-linux" ];
-  };
 })

@@ -1,0 +1,73 @@
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index d95e4f6bc08b..466b77ead43b 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -198,7 +198,7 @@ event-hall-sensor {
+ 			linux,code = <SW_LID>;
+ 			debounce-interval = <15>;
+ 			linux,can-disable;
+-			wakeup-source;
++			// wakeup-source;
+ 		};
+ 	};
+ };
+diff --git a/drivers/input/touchscreen/fts_touch/fts_lib/ftsIO.c b/drivers/input/touchscreen/fts_touch/fts_lib/ftsIO.c
+index 27c9b0dd2b02..0864398cf034 100644
+--- a/drivers/input/touchscreen/fts_touch/fts_lib/ftsIO.c
++++ b/drivers/input/touchscreen/fts_touch/fts_lib/ftsIO.c
+@@ -112,7 +112,7 @@ struct device *getDev(void)
+   * slave
+   * @return client if it was previously set or NULL in all the other cases
+   */
+-struct i2c_client *getClient()
++struct i2c_client *getClient(void)
+ {
+ 	if (client != NULL)
+ 		return (struct i2c_client *)client;
+@@ -125,7 +125,7 @@ struct i2c_client *getClient()
+   * slave
+   * @return client if it was previously set or NULL in all the other cases
+   */
+-struct spi_device *getClient()
++struct spi_device *getClient(void)
+ {
+ 	if (client != NULL)
+ 		return (struct spi_device *)client;
+diff --git a/drivers/net/wireless/ath/ath10k/thermal.c b/drivers/net/wireless/ath/ath10k/thermal.c
+index 5dbd2b3f6676..e3738073afba 100644
+--- a/drivers/net/wireless/ath/ath10k/thermal.c
++++ b/drivers/net/wireless/ath/ath10k/thermal.c
+@@ -158,6 +158,17 @@ int ath10k_thermal_register(struct ath10k *ar)
+ 	struct device *hwmon_dev;
+ 	int ret;
+ 
++	/*
++	 * The WCN3990 firmware used on SM8150 advertises thermal throttling,
++	 * but hangs when ath10k reads it. Thermal monitoring is provided by
++	 * the platform TSENS driver, so disable ath10k's internal facility on
++	 * the SNOC bus. This matches the nabu Fedora kernel source.
++	 */
++	if (ar->hif.bus == ATH10K_BUS_SNOC &&
++	    test_bit(WMI_SERVICE_THERM_THROT, ar->wmi.svc_map)) {
++		clear_bit(WMI_SERVICE_THERM_THROT, ar->wmi.svc_map);
++	}
++
+ 	if (!test_bit(WMI_SERVICE_THERM_THROT, ar->wmi.svc_map))
+ 		return 0;
+ 
+diff --git a/drivers/power/supply/idtp9418.c b/drivers/power/supply/idtp9418.c
+index ee2c6a799aa2..593b194d87aa 100644
+--- a/drivers/power/supply/idtp9418.c
++++ b/drivers/power/supply/idtp9418.c
+@@ -544,11 +544,9 @@ static void idtp9418_irq_work(struct work_struct *work)
+ 	u8 int_buf[4] = {0};
+ 	u32 int_val = 0;
+ 	int rc = 0;
+-	int irq_level;
+ 
+ 	if (gpiod_get_value(di->gpios.idt_irq))
+ 	{
+-		dev_info(di->dev, "irq is high level, ignore%d\n", irq_level);
+ 		pm_relax(di->dev);
+ 		return;
+ 	}

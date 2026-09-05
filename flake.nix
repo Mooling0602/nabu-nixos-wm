@@ -86,6 +86,13 @@
 
             CMDLINE="$(cat "$cmdlineTextPath")"
             echo ">>> cmdline: $CMDLINE"
+            case " $CMDLINE " in
+              *" init=/nix/store/"*) ;;
+              *)
+                echo "ERROR: UKI command line has no NixOS init= closure" >&2
+                exit 1
+                ;;
+            esac
 
             ukify build \
               --linux="$KIMG" \
@@ -98,6 +105,7 @@
 
             # convenience: stable filename for direct ESP deployment
             ln -s "nabu-${kernelVersion}.efi" "$out/nabu.efi"
+            printf '%s\n' "$CMDLINE" > "$out/cmdline"
 
             ls -la "$out"
           '';
@@ -110,15 +118,63 @@
 
       ukiFromConfig =
         cfg: pkgs:
+        let
+          # Keep the store path text in the command line without making the
+          # UKI derivation build the entire userspace closure.  nabu-rootfs is
+          # the output that materializes that matching closure.
+          initPath = builtins.unsafeDiscardStringContext "${cfg.system.build.toplevel}/init";
+        in
         mkUki {
           inherit pkgs;
           kernel = cfg.system.build.kernel;
           initrd = cfg.system.build.initialRamdisk;
-          cmdline = lib.concatStringsSep " " cfg.boot.kernelParams;
+          # NixOS stage-1 requires an explicit system closure.  Normal NixOS
+          # boot loaders add this themselves; our hand-built UKI must do it.
+          cmdline = lib.concatStringsSep " " ([ "init=${initPath}" ] ++ cfg.boot.kernelParams);
           # aarch64 stub source: native on aarch64 hosts, cross on x86_64
           targetPkgs =
             if pkgs.stdenv.hostPlatform.isAarch64 then pkgs else pkgs.pkgsCross.aarch64-multiplatform;
         };
+
+      # Complete, unprivileged ESP packaging.  A UKI alone is not a replacement
+      # for the existing dualboot ESP: retain its rEFInd and Android entry.
+      mkEsp = pkgs: uki:
+        let
+          dualboot = pkgs.fetchFromGitHub {
+            owner = "hybrid-orbital";
+            repo = "nabu_fedora_packages";
+            rev = "cee0eec4d4f8681bf6fe423ff51904a649340ecd";
+            sha256 = "0llfds8a1dfn9qldg6gf4kp50mnpb619vwf91bw08cqsabnsyhm3";
+          };
+        in
+        pkgs.runCommand "nabu-esp-image" {
+          nativeBuildInputs = [ pkgs.dosfstools pkgs.mtools pkgs.zip ];
+        } ''
+          mkdir -p "$out" stage/EFI/nixos
+          cp -r ${dualboot}/nabu-fedora-dualboot-efi/boot/efi/EFI/{BOOT,Android} stage/EFI/
+          chmod -R u+w stage
+          cp ${uki}/nabu.efi stage/EFI/nixos/nabu.efi
+          # Stable explicit entry, independent of rEFInd's automatic scan.
+          cat >> stage/EFI/BOOT/refind.conf <<'ENTRY'
+
+          menuentry "NixOS (nabu)" {
+              loader /EFI/nixos/nabu.efi
+              icon /EFI/BOOT/icons/os_linux.png
+          }
+          ENTRY
+          # FAT timestamps cannot represent the Nix store's Unix epoch.
+          find stage -exec touch -h -t 198001010000 {} +
+          truncate -s 350105600 "$out/esp.img"
+          mkfs.vfat --invariant -F 32 -S 4096 -s 1 -R 32 -h 21234176 \
+            -n ESPNABU -i 5C7A09AD -f 2 "$out/esp.img"
+          mcopy -m -i "$out/esp.img" -s stage/EFI ::/
+          fsck.fat -n "$out/esp.img"
+          mdir -i "$out/esp.img" ::/EFI/BOOT/bootaa64.efi
+          mdir -i "$out/esp.img" ::/EFI/Android/Reboot2Android.efi
+          mcopy -i "$out/esp.img" ::/EFI/nixos/nabu.efi copied.efi
+          cmp ${uki}/nabu.efi copied.efi
+          (cd stage && zip -qr "$out/efi-files.zip" EFI)
+        '';
 
     in
     {
@@ -156,8 +212,12 @@
           {
             # Single-file EFI kernel image — drop into ESP to test on device
             nabu-uki = ukiFromConfig cfg pkgs;
+            nabu-esp = mkEsp pkgs self.packages.${system}.nabu-uki;
             # kernel alone (use .configfile passthru to inspect the config)
             nabu-kernel = cfg.system.build.kernel;
+            # Flashable ext4 image from the same cross-evaluated configuration
+            # as the UKI, so both artifacts reference the same system closure.
+            nabu-rootfs = cfg.system.build.rootfs-image;
             default = self.packages.${system}.nabu-uki;
           }
         );
