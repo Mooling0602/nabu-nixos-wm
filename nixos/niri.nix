@@ -62,6 +62,9 @@ let
                 layout "us"
             }
         }
+
+        // 不要让电源键触发挂起（niri 默认会把电源键变成 sleep）
+        disable-power-key-handling
     }
 
     // 触摸屏保留 niri 默认手势（单指滚动、双指缩放等）

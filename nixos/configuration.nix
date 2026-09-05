@@ -147,8 +147,9 @@ in
   # `fastboot flash linux nabu-rootfs.ext4.img`
   nabu.image.compress = false;
 
-  # Tablet-friendly: power button suspends
-  services.logind.settings.Login.HandlePowerKey = "suspend";
+  # 平板电源键：不挂起、不关机。屏幕亮灭交给合成器（niri）与内核管理，
+  # 避免 nabu 上 suspend 导致「短暂点亮又熄灭」。
+  services.logind.settings.Login.HandlePowerKey = "ignore";
 
   # The system is stateless enough for this; speeds up shutdown
   systemd.settings.Manager.DefaultTimeoutStopSec = "10s";
