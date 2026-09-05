@@ -8,7 +8,6 @@
 # 这是快捷键能否工作的关键。
 {
   pkgs,
-  lib,
   ...
 }:
 
@@ -142,11 +141,7 @@ in
     wvkbdToggle
   ];
 
-  # 部署 niri 配置到 nabu 用户（首次创建，之后不覆盖用户的自定义）
-  system.activationScripts.niriConfig = lib.stringAfter [ "users" ] ''
-    if [ ! -e /home/nabu/.config/niri/config.kdl ]; then
-      mkdir -p /home/nabu/.config/niri
-      install -m 644 -o nabu -g users ${niriConfigKdl} /home/nabu/.config/niri/config.kdl
-    fi
-  '';
+  # niri 系统级配置（声明式）。niri 会优先读取 ~/.config/niri/config.kdl，
+  # 若不存在则回退到 /etc/niri/config.kdl，用户可在 home 下自行覆盖。
+  environment.etc."niri/config.kdl".source = niriConfigKdl;
 }
