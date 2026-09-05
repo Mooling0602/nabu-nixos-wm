@@ -66,6 +66,7 @@ in
   imports = [
     ./hardware-nabu.nix
     ./uki.nix
+    ./niri.nix
     ./rootfs-image.nix
   ];
 
@@ -80,12 +81,12 @@ in
       "wheel"
       "networkmanager"
       "video"
-      "input"
+      "audio"
     ];
     initialPassword = "nabu";
   };
 
-  # Minimal image (no DE): drop straight into a tty as $USER automatically.
+  # greetd + dms-greeter (见 niri.nix) 接管登录，不再自动登录 TTY。 into a tty as $USER automatically.
   services.getty.autologinUser = "nabu";
 
   # == Nix ====================================================================
