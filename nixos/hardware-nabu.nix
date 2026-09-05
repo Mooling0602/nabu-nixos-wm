@@ -20,6 +20,9 @@
   # == Kernel =================================================================
   boot.kernelPackages = pkgs.linuxKernel.packagesFor pkgs.kernel-sm8150;
   # No `quiet`: let kernel/systemd messages scroll on the console.
+  # root=PARTLABEL=linux is technically redundant under the systemd initrd
+  # (which boots with root=fstab from fileSystems."/"), but it boots fine on
+  # real hardware and documents the root device, so it is kept here.
   boot.kernelParams = [
     "root=PARTLABEL=linux"
     "rw"
@@ -50,6 +53,7 @@
       set -euo pipefail
 
       coreutils="${pkgs.coreutils}"
+      diffutils="${pkgs.diffutils}"
       uki="${config.system.build.uki}/${config.system.boot.loader.ukiFile}"
       dst_dir="/boot/efi/EFI/nixos"
       dst="$dst_dir/nabu.efi"
@@ -57,8 +61,9 @@
       # Keep the currently installed UKI as a "previous kernel" fallback.  If a
       # newly installed kernel fails to boot, rEFInd's auto-scan lists
       # nabu-previous.efi, so the older, working kernel can still be chosen
-      # from the boot menu.  cmp skips the backup when nothing changed.
-      if [ -e "$dst" ] && ! "$coreutils/bin/cmp" -s "$uki" "$dst"; then
+      # from the boot menu.  cmp (from diffutils) skips the backup when nothing
+      # changed.
+      if [ -e "$dst" ] && ! "$diffutils/bin/cmp" -s "$uki" "$dst"; then
         "$coreutils/bin/install" -m644 "$dst" "$dst_dir/nabu-previous.efi"
       fi
 

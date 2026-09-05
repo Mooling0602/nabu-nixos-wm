@@ -50,11 +50,12 @@ let
     ] (old.buildInputs or [ ]);
     postFixup = ''
       mkdir -p "$man" "$devdoc"
-      # This newly installed generator keeps /bin/bash in the upstream cross
-      # build. NixOS only provides /bin/sh. Generators also need explicit tool
-      # paths because they run before the normal service environment exists.
+      # In the cross build this generator keeps a raw #!/bin/bash (patchShebangs
+      # skips it); in native builds patchShebangs has already rewritten it to
+      # the store bash.  Replace the shebang non-fatally, but require the tool
+      # paths below (generators run before the normal service environment).
       substituteInPlace "$out/lib/systemd/system-generators/nm-initrd-generator.sh" \
-        --replace-fail '#!/bin/bash' '#!${pkgs.bash}/bin/bash' \
+        --replace '#!/bin/bash' '#!${pkgs.bash}/bin/bash' \
         --replace-fail 'ln -s ' '${pkgs.coreutils}/bin/ln -s ' \
         --replace-fail 'mkdir -p ' '${pkgs.coreutils}/bin/mkdir -p ' \
         --replace-fail '/usr/lib/systemd/system/' "$out/lib/systemd/system/"
