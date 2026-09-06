@@ -165,9 +165,12 @@
   };
 
   # == Audio (quad speakers, CS35L41 amplifiers) ==============================
-  environment.etc."alsa-ucm2/conf.d/sm8150/sm8150.conf".source =
+  # ALSA UCM2 lives under /etc/alsa/ucm2 (not /etc/alsa-ucm2): the hyphenated
+  # path is not on ALSA's search path, so the sm8150/nabu profile would never
+  # load and the CS35L41 TDM route stays unconfigured (silent speakers).
+  environment.etc."alsa/ucm2/conf.d/sm8150/sm8150.conf".source =
     "${pkgs.nabu-alsa-ucm}/sm8150.conf";
-  environment.etc."alsa-ucm2/Xiaomi/nabu/HiFi.conf".source =
+  environment.etc."alsa/ucm2/Xiaomi/nabu/HiFi.conf".source =
     "${pkgs.nabu-alsa-ucm}/HiFi.conf";
 
   # == Quirks =================================================================
