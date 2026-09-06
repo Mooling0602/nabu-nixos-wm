@@ -169,6 +169,56 @@
   # merged into alsa-ucm-conf by the flake overlay (see pkgs/default.nix).
   # ALSA only searches the alsa-ucm-conf datadir, never /etc, and the conf.d
   # directory must be the card's driver name "snd_soc_sm8150".
+  #
+  # In practice WirePlumber/ACP has no working UCM for this card, so we also
+  # arm the CS35L41 TDM route directly at boot and expose the card to PipeWire
+  # as a plain hw:0,0 sink (same approach as Mooling0602's nabu-nixos-kde-config).
+  systemd.services.nabu-speaker-route = {
+    description = "Enable nabu speaker route (CS35L41)";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "systemd-udevd.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = pkgs.writeShellScript "nabu-speaker-route" ''
+        AMIXER=${pkgs.alsa-utils}/bin/amixer
+        i=0
+        while [ $i -lt 25 ]; do
+          $AMIXER -c0 cget "name='QUAT_TDM_RX_0 Audio Mixer MultiMedia1'" >/dev/null 2>&1 && break
+          sleep 1
+          i=$((i+1))
+        done
+        $AMIXER -c0 cset "name='QUAT_TDM_RX_0 Audio Mixer MultiMedia1'" 1
+        for a in BR TR BL TL; do
+          $AMIXER -c0 cset "name='$a PCM Soft Ramp'" 4ms
+          $AMIXER -c0 cset "name='$a Analog PCM Volume'" 5
+        done
+      '';
+    };
+  };
+
+  # Expose the X5 card to PipeWire as a plain hw:0,0 sink (no UCM profile).
+  environment.etc."xdg/wireplumber/wireplumber.conf.d/51-nabu-speaker.conf".text = ''
+    monitor.alsa.rules = [
+      {
+        matches = [
+          { device.name = "alsa_card.platform-sound" }
+        ]
+        actions = {
+          update-props = {
+            api.alsa.pcm = "hw:0,0"
+            api.alsa.use-ucm = false
+            node.name = "nabu-speakers"
+            node.description = "内置扬声器 (CS35L41)"
+            audio.format = "S16LE"
+            audio.rate = 48000
+            audio.channels = 2
+            audio.position = [ FL FR ]
+          }
+        }
+      }
+    ]
+  '';
 
   # == Quirks =================================================================
   # Force /dev/rtc symlink to rtc1 (pm8150 RTC keeps time when powered off)
