@@ -66,10 +66,8 @@
     "ktz8866"
   ];
   boot.initrd.kernelModules = [
-    # Load the backlight and panel explicitly so fbcon does not depend on
-    # Plymouth or a later userspace application to bring up the display.
-    "ktz8866"
-    "panel_novatek_nt36523"
+    # Keep display drivers available above, but let udev load them on demand.
+    # Force only the storage drivers needed to mount the root filesystem.
     "ufs_qcom"
     "ufshcd_pltfrm"
   ];

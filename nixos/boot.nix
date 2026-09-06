@@ -50,33 +50,24 @@
   # == Boot diagnostics =======================================================
   # Use this option instead of a second loglevel= argument: NixOS otherwise
   # appends its default loglevel=4 after manually supplied kernel parameters.
-  boot.consoleLogLevel = 8;
+  # Keep debug messages in the kernel ring buffer without flooding fbcon.
+  # Aggressive console tracing coincided with intermittent grey-screen boots.
+  boot.consoleLogLevel = 7;
   boot.plymouth.enable = false;
   boot.initrd.verbose = true;
 
   boot.kernelParams = [
     # EFI stub output uses the firmware console before Linux takes over.
     "efi=debug"
-    # Record initcall progress and retain early messages until fbcon is ready.
-    "ignore_loglevel"
+    # Retain early messages until the display and journald are ready.
     "printk.time=1"
     "log_buf_len=4M"
-    "initcall_debug"
-    # Bind immediately once MSM DRM provides a framebuffer; keep text visible.
-    "fbcon=nodefer"
+    # Keep the normal fbcon takeover policy; do not force an early bind.
     "consoleblank=0"
     # These apply to both initrd and the main system, including early PID 1.
-    # kmsg reaches the console and can be collected by journald once it starts.
     "systemd.show_status=yes"
-    "systemd.log_level=debug"
-    "systemd.log_target=kmsg"
+    "systemd.log_level=info"
   ];
-
-  # Show initrd service output as well as manager status, retaining journal copies.
-  boot.initrd.systemd.settings.Manager = {
-    DefaultStandardOutput = "journal+console";
-    DefaultStandardError = "journal+console";
-  };
 
   # Preserve logs from previous boots, with bounded disk and runtime use.
   services.journald = {

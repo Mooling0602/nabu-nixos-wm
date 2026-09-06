@@ -1,15 +1,17 @@
 # 启动日志排查
 
 日志参数集中在 `nixos/boot.nix`；面板、背光及存储驱动的 initrd 加载顺序在
-`nixos/hardware-nabu.nix`。当前启用详细启动日志，关闭 Plymouth 启动画面。
+`nixos/hardware-nabu.nix`。当前保留启动日志，关闭 Plymouth 启动画面，
+避免默认启用大量调试输出和强制提前接管屏幕。
 
 ## 能看到哪些阶段
 
 - EFI stub：`efi=debug` 请求固件控制台输出加载阶段的调试信息，能否显示取决于 UEFI 实现。
-- Linux 内核：日志级别统一设为 8，启用时间戳、初始化函数跟踪和 4 MiB 日志缓冲区。
-- initrd：主动加载背光和面板驱动；framebuffer 可用后，fbcon 立即接管并显示文字。
-  systemd 管理器输出详细日志，服务的标准输出和错误同时进入控制台及 journal。
-- 正常系统：显示 systemd 启动状态，管理器调试日志写入内核日志通道并由 journald 收集。
+- Linux 内核：控制台日志级别统一设为 7，启用时间戳和 4 MiB 日志缓冲区。
+  已产生的 debug 消息仍保留在内核缓冲区，可通过 journal 查看，但不刷到屏幕。
+- initrd：包含背光和面板驱动，由 udev 按设备需求加载；不强制提前加载或禁用
+  fbcon 的延迟接管策略。systemd 显示启动状态，服务输出使用 NixOS 的默认日志通道。
+- 正常系统：显示 systemd 启动状态，管理器日志级别为 info，由 journald 收集。
   登录界面启动后仍可通过 journal 查看日志。
 
 小米平板 5 当前设备树没有提供 simple-framebuffer。Linux 接管后，屏幕必须等待
@@ -43,7 +45,8 @@ sudo journalctl -b -o short-monotonic --no-pager > boot-current.log
 sudo journalctl -b -1 -o short-monotonic --no-pager > boot-previous.log
 ```
 
-`/proc/cmdline` 应只有一个 `loglevel=8`，不含 `quiet` 或 `splash`。
+`/proc/cmdline` 应只有一个 `loglevel=7`，不含 `quiet`、`splash`、`ignore_loglevel`、
+`initcall_debug` 或 `fbcon=nodefer`。
 查看 initrd 的切根过程和模块加载：
 
 ```sh
@@ -55,12 +58,39 @@ journal 持久存储上限设为 256 MiB，正常写盘同步间隔为 30 秒。
 在根文件系统可写并完成日志落盘之前发生的死机、突然断电，以及缓冲区已覆盖的消息，
 不保证能通过 `journalctl -b -1` 找回。
 
-## 临时减少日志
+## 出现企鹅和日志后灰屏
 
-详细日志会增加启动输出量，也可能影响时序。排查完成后，可以从 `boot.nix` 移除
-`initcall_debug`、`ignore_loglevel`、`efi=debug`，将 `boot.consoleLogLevel` 降为 7，
-并将 `systemd.log_level=debug` 改为 `systemd.log_level=info`。
-仅临时降低当前 systemd 管理器日志级别可运行 `sudo systemd-analyze log-level info`。
+企鹅和 `[时间戳]` 消息表明 Linux framebuffer console 已经显示过内容，
+故障应重点排查此后的显示驱动运行及切换过程；这不能证明系统整体已经死机。
+
+首次增加详细日志时，还同时启用了 `fbcon=nodefer`、主动加载面板/背光驱动、
+`initcall_debug` 及 systemd debug 日志到 kmsg。这些设置会改变初始化时序或增加
+控制台输出负担。用户报告该改动后出现偶发灰屏，因此当前撤回这些设置，
+保留时间戳、较大的缓冲区、启动状态与持久化 journal。这是用于验证回归来源的
+缓解调整，尚不能确定是哪一项触发，也不表示已在真机验证修复。
+
+建议按以下顺序对照，每一步分别记录几次热重启和冷启动结果：
+
+1. 应用当前配置，确认 `/proc/cmdline` 已更新；偶发问题不能凭一次成功启动排除。
+2. 如仍灰屏，在 systemd-boot 菜单选中启动项，按 `e`，在参数末尾临时加上
+   `systemd.unit=multi-user.target`，回车启动。它仅对这次启动生效，不启动图形登录。
+   若文本启动稳定，应继续检查 greetd/niri 与 DRM 的切换；若也灰屏，则继续检查
+   内核显示路径或更早的启动阶段。
+3. 从启动菜单选择日志改动之前的 generation 对照。旧配置还启用了 Plymouth，
+   因此旧版本稳定只能说明这组启动配置值得怀疑，不能直接锁定某一个参数。
+
+灰屏时若 SSH 仍能连接，优先导出当前启动日志；Wi-Fi MAC 会变化，需确认当前 IP。
+成功启动后查看 `journalctl --list-boots` 的时间，再选择故障启动的 boot ID，
+不要假定 `-b -1` 一定是灰屏那次：很早的失败启动可能没有持久记录。
+
+```sh
+sudo journalctl -b -k --no-pager > kernel-current.log
+sudo journalctl -b -u greetd.service --no-pager
+sudo journalctl -b -k --no-pager | grep -Ei 'drm|msm|dsi|dpu|panel|gmu|adreno|firmware|timeout|lockup|stall'
+```
+
+如需更详细的内核初始化跟踪，可在启动菜单中仅对一次启动添加 `initcall_debug`，
+保持 `loglevel=7`，再从 journal 导出消息。避免同时恢复全部 debug 和显示时序改动。
 
 参考：[内核启动参数](https://docs.kernel.org/admin-guide/kernel-parameters.html)、
 [fbcon 接管行为](https://docs.kernel.org/fb/fbcon.html)、
