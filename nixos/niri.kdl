@@ -22,6 +22,11 @@ input {
         natural-scroll
     }
 
+    // Bind the built-in pen to the panel so coordinates follow its transform.
+    tablet {
+        map-to-output "DSI-1"
+    }
+
     // Keep the tablet power key from triggering suspend or shutdown.
     disable-power-key-handling
 }
