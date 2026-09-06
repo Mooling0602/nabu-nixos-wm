@@ -15,14 +15,14 @@
         ./nixos/configuration.nix
       ];
 
-      # The UKI is now produced by nixpkgs' boot.uki module (see nixos/uki.nix):
-      # kernel + initrd + DTB + cmdline in one EFI PE, with the DTB embedded
-      # via hardware.deviceTree.  The derivation is cfg.system.build.uki; here
-      # we only package it into the ESP image below.
-
-      # Complete, unprivileged ESP packaging.  A UKI alone is not a replacement
-      # for the existing dualboot ESP: retain its rEFInd and Android entry.
-      mkEsp = pkgs: uki: ukiFile:
+      # Complete, unprivileged ESP packaging for systemd-boot (no UKI, no
+      # rEFInd).  systemd-boot installs to the removable fallback
+      # /EFI/BOOT/BOOTAA64.EFI (Project Aloha has no NVRAM variables); its
+      # loader entries reference the kernel/initrd/DTB under /nixos on the ESP.
+      # The Android dualboot stub is kept from the reference Fedora dualboot
+      # package.
+      mkEsp =
+        pkgs: cfg:
         let
           dualboot = pkgs.fetchFromGitHub {
             owner = "hybrid-orbital";
@@ -30,34 +30,71 @@
             rev = "cee0eec4d4f8681bf6fe423ff51904a649340ecd";
             sha256 = "0llfds8a1dfn9qldg6gf4kp50mnpb619vwf91bw08cqsabnsyhm3";
           };
+          systemdBoot = "${cfg.systemd.package}/lib/systemd/boot/efi/systemd-bootaa64.efi";
+          kernel = "${cfg.boot.kernelPackages.kernel}/${cfg.system.boot.loader.kernelFile}";
+          initrd = "${cfg.system.build.initialRamdisk}/${cfg.system.boot.loader.initrdFile}";
+          dtb = "${cfg.hardware.deviceTree.package}/${cfg.hardware.deviceTree.name}";
+          init = "${cfg.system.build.toplevel}/init";
+          kernelVersion = cfg.boot.kernelPackages.kernel.modDirVersion;
+          kernelParams = lib.concatStringsSep " " cfg.boot.kernelParams;
+          timeout = toString cfg.boot.loader.timeout;
         in
         pkgs.runCommand "nabu-esp-image" {
           nativeBuildInputs = [ pkgs.dosfstools pkgs.mtools pkgs.zip ];
         } ''
-          mkdir -p "$out" stage/EFI/nixos
-          cp -r ${dualboot}/nabu-fedora-dualboot-efi/boot/efi/EFI/{BOOT,Android} stage/EFI/
-          chmod -R u+w stage
-          cp ${uki}/${ukiFile} stage/EFI/nixos/nabu.efi
-          # Stable explicit entry, independent of rEFInd's automatic scan.
-          cat >> stage/EFI/BOOT/refind.conf <<'ENTRY'
+          set -euo pipefail
+          mkdir -p "$out" stage/EFI/BOOT stage/EFI/systemd stage/EFI/Android \
+            stage/loader/entries stage/nixos
 
-          menuentry "NixOS (nabu)" {
-              loader /EFI/nixos/nabu.efi
-              icon /EFI/BOOT/icons/os_linux.png
-          }
-          ENTRY
+          # systemd-boot: removable fallback + vendor path.
+          install -m644 ${systemdBoot} stage/EFI/BOOT/BOOTAA64.EFI
+          install -m644 ${systemdBoot} stage/EFI/systemd/systemd-bootaa64.efi
+
+          # Android dualboot stub.
+          install -m644 \
+            ${dualboot}/nabu-fedora-dualboot-efi/boot/efi/EFI/Android/Reboot2Android.efi \
+            stage/EFI/Android/Reboot2Android.efi
+
+          # Kernel, initrd, device tree.
+          install -m644 ${kernel} stage/nixos/kernel
+          install -m644 ${initrd} stage/nixos/initrd
+          install -m644 ${dtb} stage/nixos/nabu.dtb
+
+          cat > stage/loader/loader.conf <<EOF
+          timeout ${timeout}
+          default nixos-nabu.conf
+          console-mode keep
+          EOF
+
+          cat > stage/loader/entries/nixos-nabu.conf <<EOF
+          title NixOS (nabu)
+          version Generation 1, Linux ${kernelVersion}
+          linux /nixos/kernel
+          initrd /nixos/initrd
+          options init=${init} ${kernelParams}
+          devicetree /nixos/nabu.dtb
+          sort-key nixos
+          EOF
+
+          cat > stage/loader/entries/android.conf <<EOF
+          title Android
+          efi /EFI/Android/Reboot2Android.efi
+          sort-key o_android
+          EOF
+
           # FAT timestamps cannot represent the Nix store's Unix epoch.
           find stage -exec touch -h -t 198001010000 {} +
           truncate -s 350105600 "$out/esp.img"
           mkfs.vfat --invariant -F 32 -S 4096 -s 1 -R 32 -h 21234176 \
             -n ESPNABU -i 5C7A09AD -f 2 "$out/esp.img"
           mcopy -m -i "$out/esp.img" -s stage/EFI ::/
+          mcopy -m -i "$out/esp.img" -s stage/loader ::/
+          mcopy -m -i "$out/esp.img" -s stage/nixos ::/
           fsck.fat -n "$out/esp.img"
-          mdir -i "$out/esp.img" ::/EFI/BOOT/bootaa64.efi
+          mdir -i "$out/esp.img" ::/EFI/BOOT/BOOTAA64.EFI
           mdir -i "$out/esp.img" ::/EFI/Android/Reboot2Android.efi
-          mcopy -i "$out/esp.img" ::/EFI/nixos/nabu.efi copied.efi
-          cmp ${uki}/${ukiFile} copied.efi
-          (cd stage && zip -qr "$out/efi-files.zip" EFI)
+          mdir -i "$out/esp.img" ::/nixos/nabu.dtb
+          (cd stage && zip -qr "$out/efi-files.zip" EFI loader nixos)
         '';
 
     in
@@ -94,15 +131,14 @@
                 (crossConfigFor system).config;
           in
           {
-            # Single-file EFI kernel image — drop into ESP to test on device
-            nabu-uki = cfg.system.build.uki;
-            nabu-esp = mkEsp pkgs cfg.system.build.uki cfg.system.boot.loader.ukiFile;
+            # Bootable ESP image: systemd-boot + kernel + initrd + DTB + Android.
+            nabu-esp = mkEsp pkgs cfg;
             # kernel alone (use .configfile passthru to inspect the config)
             nabu-kernel = cfg.system.build.kernel;
             # Flashable ext4 image from the same cross-evaluated configuration
-            # as the UKI, so both artifacts reference the same system closure.
+            # as the ESP, so both artifacts reference the same system closure.
             nabu-rootfs = cfg.system.build.rootfs-image;
-            default = self.packages.${system}.nabu-uki;
+            default = self.packages.${system}.nabu-esp;
           }
         );
     };

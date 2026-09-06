@@ -65,7 +65,7 @@ in
 {
   imports = [
     ./hardware-nabu.nix
-    ./uki.nix
+    ./boot.nix
     ./niri.nix
     ./rootfs-image.nix
   ];

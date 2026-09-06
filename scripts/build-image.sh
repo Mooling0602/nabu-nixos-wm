@@ -5,14 +5,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mode=${1:-all}
-case "$mode" in all|esp|uki|rootfs) ;; *)
+case "$mode" in all|esp|rootfs) ;; *)
   echo "usage: $0 [all|esp|rootfs]" >&2; exit 1 ;;
 esac
 mkdir -p result-images
 OUT_DIR=${OUT_DIR:-$(mktemp -d "$PWD/result-images/build-XXXXXX")}
 mkdir -p "$OUT_DIR"
 OUT_DIR=$(realpath "$OUT_DIR")
-for name in nabu.efi esp.img efi-files.zip nabu-rootfs.ext4.img SHA256SUMS; do
+for name in esp.img efi-files.zip nabu-rootfs.ext4.img SHA256SUMS; do
   if [ -e "$OUT_DIR/$name" ]; then
     echo "Refusing to overwrite $OUT_DIR/$name; select a new OUT_DIR." >&2
     exit 1
@@ -20,9 +20,7 @@ for name in nabu.efi esp.img efi-files.zip nabu-rootfs.ext4.img SHA256SUMS; do
 done
 
 if [ "$mode" != rootfs ]; then
-  nix build .#nabu-uki --out-link "$OUT_DIR/nix-uki"
   nix build .#nabu-esp --out-link "$OUT_DIR/nix-esp"
-  cp -L "$OUT_DIR/nix-uki"/*.efi "$OUT_DIR/nabu.efi"
   cp --reflink=auto --sparse=always "$OUT_DIR/nix-esp/esp.img" "$OUT_DIR/esp.img"
   cp "$OUT_DIR/nix-esp/efi-files.zip" "$OUT_DIR/efi-files.zip"
 fi
@@ -34,7 +32,7 @@ fi
 (
   cd "$OUT_DIR"
   artifacts=()
-  for name in nabu.efi esp.img efi-files.zip nabu-rootfs.ext4.img; do
+  for name in esp.img efi-files.zip nabu-rootfs.ext4.img; do
     if [ -f "$name" ]; then artifacts+=("$name"); fi
   done
   sha256sum "${artifacts[@]}" > SHA256SUMS

@@ -2,9 +2,10 @@
 #
 # Reference: jhuang6451/nabu_fedora (nabu-fedora-configs-core), sm8150-mainline.
 #
-# Boot chain on the device: UEFI (Project Aloha / DBKP) -> rEFInd -> UKI in ESP.
-# The kernel command line is baked into the UKI; rootfs is identified by
-# PARTLABEL=linux (ext4), ESP by PARTLABEL=esp.
+# Boot chain on the device: UEFI (Project Aloha / DBKP) -> systemd-boot in ESP.
+# systemd-boot loads the EFI-stub kernel + initrd + DTB straight from the ESP
+# (no UKI); rootfs is identified by PARTLABEL=linux (ext4), ESP by
+# PARTLABEL=esp.
 {
   config,
   pkgs,
@@ -43,36 +44,9 @@
   # console=tty0 + loglevel=7 above so a failure still leaves text on screen.
   boot.plymouth.enable = true;
 
-  # The ESP is owned by the rEFInd dualboot layout (rEFInd + Android entry);
-  # NixOS only installs its UKI into it.  nixos-rebuild boot|switch runs this
-  # hook, which deploys the freshly built UKI under the stable rEFInd menu
-  # entry /EFI/nixos/nabu.efi, keeping the previous UKI as a fallback.
-  boot.loader.external = {
-    enable = true;
-    installHook = pkgs.writeShellScript "nabu-install-uki" ''
-      set -euo pipefail
-
-      coreutils="${pkgs.coreutils}"
-      diffutils="${pkgs.diffutils}"
-      uki="${config.system.build.uki}/${config.system.boot.loader.ukiFile}"
-      dst_dir="/boot/efi/EFI/nixos"
-      dst="$dst_dir/nabu.efi"
-
-      # Keep the currently installed UKI as a "previous kernel" fallback.  If a
-      # newly installed kernel fails to boot, rEFInd's auto-scan lists
-      # nabu-previous.efi, so the older, working kernel can still be chosen
-      # from the boot menu.  cmp (from diffutils) skips the backup when nothing
-      # changed.
-      if [ -e "$dst" ] && ! "$diffutils/bin/cmp" -s "$uki" "$dst"; then
-        "$coreutils/bin/install" -m644 "$dst" "$dst_dir/nabu-previous.efi"
-      fi
-
-      # Install the new UKI under the stable rEFInd menu entry.
-      "$coreutils/bin/install" -Dm644 "$uki" "$dst"
-
-      echo "nabu: installed $uki -> $dst (previous kept as nabu-previous.efi)"
-    '';
-  };
+  # The ESP is managed by systemd-boot (see boot.nix): nixos-rebuild boot|switch
+  # runs bootctl install + the systemd-boot builder, which deploys the kernel,
+  # initrd, DTB and loader entries under /boot/efi.  Nothing to do here.
 
   # Generic initramfs (not hostonly) with forced UFS drivers — the image is
   # built off-device and the rootfs lives on the UFS `linux` partition.
