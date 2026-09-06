@@ -1,5 +1,10 @@
 # niri + Noctalia 桌面
 
+[返回项目首页](../README_zh_CN.md) · [设备状态](device-status.md)
+
+这是当前发布镜像的默认桌面。相机不可用、低功耗休眠未解决，且仍有偶发启动失败；
+电源键被刻意忽略，锁屏不代表熄屏或低功耗休眠。其他桌面变体仍在[路线图](roadmap.md)中。
+
 `nixos/niri.kdl` 管理布局、输入设备、窗口规则和快捷键；
 `nixos/niri.nix` 管理 NixOS 软件包、服务、登录界面及 KDL 构建校验。
 当前配置对应 flake.lock 中的 niri 26.04 和 Noctalia 5.0.0-beta.10。

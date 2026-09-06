@@ -1,81 +1,99 @@
-# 在设备上使用 nixos-rebuild（小米平板 5 / nabu）
+# 设备上更新、回滚与清理
 
-刷机（esp + rootfs）完成后，日常系统更新直接在这台平板上用
-`nixos-rebuild` 完成，**不需要再手动碰 ESP 里的 UKI**：每次
-`nixos-rebuild boot|switch` 都会自动重建 UKI 并部署到
-`/boot/efi/EFI/nixos/nabu.efi`（rEFInd 菜单项固定指向这个文件）。
+[返回项目首页](../README_zh_CN.md)
 
-## 前置条件
+当前由 NixOS 原生 systemd-boot 安装器管理启动文件和 generation 菜单。
+不再运行 UKI 部署 hook，也没有 `nabu-previous.efi` 备份机制。
 
-- 已按 README 完成刷机，rEFInd 菜单能进入 NixOS。
-- 平板能联网（后续 rebuild 需要拉取 nixpkgs / 下载构建产物）。
-- 平板上有这个 flake 仓库的拷贝。
+## 准备配置
 
-## 首次准备：把 flake 放到设备上
+在平板上保存仓库副本，从你要使用的提交或 release 开始修改：
 
-```Shell
-# 在 PC 上把仓库传到平板（平板已通过 USB 网络 / adb / ssh 可达）
-rsync -av --delete ~/nixos-for-nabu/ nabu:/home/nabu/nixos-for-nabu/
-
-# 平板侧
-cd ~/nixos-for-nabu
+```sh
+git clone https://github.com/hybrid-orbital/nixos-for-nabu.git
+cd nixos-for-nabu
+git checkout v0.1.0-alpha
+# 需要继续修改时可创建自己的分支
+git switch -c my-nabu
 ```
 
-> 注意：当前配置里 `nixpkgs.flake.setNixPath = false`、`setFlakeRegistry = false`，
-> 所以必须用 `--flake <路径>` 的形式，不能省略。
+当前关闭了自动设置 flake registry 和 NIX_PATH，应显式使用 `--flake`。
+新文件需要先纳入 Git 跟踪，Git flake 才能读取；不必先提交。
+从交叉镜像开始的首次原生 rebuild 可能重建大量依赖，见[构建指南](building.md)。
 
 ## 日常更新
 
-```Shell
-sudo nixos-rebuild switch --flake ~/nixos-for-nabu#nabu
+```sh
+sudo nixos-rebuild switch --flake .#nabu
 ```
 
-这一步会：
+它构建系统闭包、更新系统 profile、安装启动条目并激活运行中的配置。
+内核和 initrd 的变更在下一次启动生效。只准备下次启动而不切换当前服务时：
 
-1. 构建新的系统 closure（toplevel）；
-2. 通过 `boot.loader.external.installHook` 自动重建 UKI 并写入
-   `/boot/efi/EFI/nixos/nabu.efi`（固定文件名，rEFInd 菜单无需改动）；
-3. 切换运行中的系统到新 generation。
-
-重启后即进入新系统。
-
-## 回退（rollback）
-
-### 用户态回退（最常见）
-
-UKI 的 cmdline 使用稳定路径 `init=/nix/var/nix/profiles/system/init`，
-因此**用户态回退只需改 profile 指向，UKI 不用动**：
-
-```Shell
-sudo nixos-rebuild switch --rollback --flake ~/nixos-for-nabu#nabu
-# 或
-sudo nix-env --rollback -p /nix/var/nix/profiles/system
+```sh
+sudo nixos-rebuild boot --flake .#nabu
 ```
 
-重启即回到上一个 generation。
+只临时测试用户态配置可用 `nixos-rebuild test --flake .#nabu`；它不把测试结果设成
+下一次默认启动系统，也不能临时更换当前运行内核。桌面配置更新与可写用户配置的关系见
+[桌面说明](desktop.md#应用与验证)。
 
-### 内核回退（新内核 boot 失败）
+需要更新 nixpkgs 时先有意识地执行 `nix flake update`，再构建验证。普通 rebuild
+不会自动把已锁定输入更新到最新版本。保存可启动的旧 generation，尤其是在修改内核、
+initrd、图形或电源设置前。
 
-每次部署新 UKI 前，installHook 会把旧 UKI 保留为
-`/boot/efi/EFI/nixos/nabu-previous.efi`。如果新内核启动失败：
+## 回滚
 
-1. 重启进入 rEFInd 菜单；
-2. 选择除 `NixOS (nabu)` 之外的另一个 NixOS 项（rEFInd 自动扫描会
-   列出 `nabu-previous.efi`，旧内核）；
-3. 旧内核启动后，在系统里修复配置或执行 `--rollback`。
+系统还能使用时：
 
-> 提示：若想要一个长期固定的兜底项，可手动
-> `cp /boot/efi/EFI/nixos/nabu.efi /boot/efi/EFI/nixos/nabu-rescue.efi`，
-> installHook 只管理 `nabu.efi` 与 `nabu-previous.efi`，不会动它。
-
-## 性能提示
-
-骁龙 855 上全量编译系统很慢，建议配置二进制缓存（Cachix / 自建
-`nix-serve`），让设备端 rebuild 主要走下载而非本地编译。首次在设备上
-rebuild 前，可先在 PC 上 `nix build .#nabu-rootfs .#nabu-esp` 预热缓存。
-
-## 查看当前 UKI 的 cmdline
-
-```Shell
-nix shell nixpkgs#systemdUkify -c ukify inspect /boot/efi/EFI/nixos/nabu.efi | sed -n '/\.cmdline:/,/sha256/p'
+```sh
+sudo nixos-rebuild switch --rollback
 ```
+
+如果只想安排下次启动旧代而暂不切换当前服务，可用 `sudo nixos-rebuild boot --rollback`。
+重启后核对实际启动条目和内核。不要以单独修改 Nix profile 代替启动器部署。
+
+新配置不能正常启动时，在 systemd-boot 菜单选择仍保留的旧 generation。该条目选择
+对应内核、initrd、DTB 和具体系统闭包，而不是“旧内核加当前 profile”。
+手动从菜单启动旧代不等于已经永久改变系统 profile；进入系统后检查 generations，
+再执行相应回滚或修复配置并 rebuild。不要假定 `--rollback` 总会指向刚才手动选择的条目。
+
+```sh
+sudo nix-env -p /nix/var/nix/profiles/system --list-generations
+readlink -f /run/current-system
+readlink -f /run/booted-system
+readlink -f /nix/var/nix/profiles/system
+bootctl list
+```
+
+`/run/current-system`、`/run/booted-system` 与默认 system profile 在 `switch` 或手动
+选择旧代后可能不同，这本身不代表错误。generation 不恢复用户文件、数据库内容或磁盘分区。
+
+## ESP 空间和历史清理
+
+相同启动文件可以共享，但不同内核、initrd、DTB 仍需要空间。
+当前仓库没有显式设置 generation 数量上限，可在自己的配置中加入：
+
+```nix
+boot.loader.systemd-boot.configurationLimit = 10;
+```
+
+这个选项限制启动菜单保留的代数，不等价于删除 Nix store 中的历史系统。
+删除旧 generations 和 GC 会减少可回滚范围；先确认要保留的版本。
+
+```sh
+# 示例：明确不再需要 30 天前的 generations 后执行
+sudo nix-collect-garbage --delete-older-than 30d
+# 重新部署菜单，使其与保留的系统 generations 一致
+sudo nixos-rebuild boot --flake .#nabu
+df -h / /boot/efi
+```
+
+初始镜像的 `/nixos/*` 和 `nixos-nabu.conf`，以及旧 rEFInd/UKI 文件，不一定属于
+后续 nixpkgs 安装器的清理范围。不要先删文件再看能否启动；先检查所有保留菜单中的引用。
+
+## 电源与故障
+
+当前 logind 忽略电源键，niri 也禁用了内建电源键处理。低功耗休眠未解决，
+不要将按键无响应误认为正常休眠，也不要将锁屏等同于熄屏或 suspend。
+偶发启动失败仍是已知问题。报告方法见[设备状态](device-status.md)和[启动日志](boot-logging.md)。

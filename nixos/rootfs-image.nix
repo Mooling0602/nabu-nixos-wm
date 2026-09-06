@@ -6,7 +6,7 @@
 # initrd/activation scripts.
 #
 # Partition layout on the device (created by the reference TWRP):
-#   esp   (vfat, PARTLABEL=esp)   <- flashed separately (UKI + rEFInd)
+#   esp   (vfat, PARTLABEL=esp)   <- flashed separately (systemd-boot + kernel/initrd/DTB)
 #   linux (ext4, PARTLABEL=linux) <- this image
 {
   config,

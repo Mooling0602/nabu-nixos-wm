@@ -1,6 +1,5 @@
-# Minimal NixOS configuration for Xiaomi Pad 5 (nabu).
-# Desktop environment, input methods, fonts etc. are intentionally left out —
-# configure them yourself on the running system.
+# Base NixOS configuration for Xiaomi Pad 5 (nabu).
+# The current image imports niri + Noctalia; standalone variants are planned.
 {
   pkgs,
   lib,
@@ -86,7 +85,7 @@ in
     initialPassword = "nabu";
   };
 
-  # greetd + dms-greeter (见 niri.nix) 接管登录，不再自动登录 TTY。 into a tty as $USER automatically.
+  # Noctalia greeter handles graphical login; TTY autologin remains enabled.
   services.getty.autologinUser = "nabu";
 
   # == Nix ====================================================================
@@ -114,9 +113,9 @@ in
     LC_TELEPHONE = "zh_CN.UTF-8";
     LC_TIME = "zh_CN.UTF-8";
   };
-  # Note: no i18n.inputMethod here — add fcitx5 + addons yourself later.
+  # The niri module configures fcitx5 and desktop fonts.
 
-  # == Console font (TTY only; no desktop fonts) ==============================
+  # == Console font (TTY) ==============================
   console = {
     earlySetup = true;
     font = "ter-132n";
@@ -147,8 +146,9 @@ in
   # `fastboot flash linux nabu-rootfs.ext4.img`
   nabu.image.compress = false;
 
-  # 平板电源键：不挂起、不关机。屏幕亮灭交给合成器（niri）与内核管理，
-  # 避免 nabu 上 suspend 导致「短暂点亮又熄灭」。
+  # Tablet power key: neither suspend nor power off. Screen on/off is left to
+  # the compositor (niri) and the kernel, avoiding suspend on nabu causing a
+  # brief "lights on then off" glitch.
   services.logind.settings.Login.HandlePowerKey = "ignore";
 
   # The system is stateless enough for this; speeds up shutdown
