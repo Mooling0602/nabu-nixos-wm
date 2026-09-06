@@ -32,6 +32,8 @@
     # the kernel must attach fbcon to tty0 to render early boot logs on the
     # panel (otherwise fbcon may not bind and the screen stays black).
     "console=tty0"
+    # fbcon uses clockwise quarter-turns; niri's counter-clockwise 270
+    # gives the same landscape orientation. This only affects Linux TTYs.
     "fbcon=rotate:1"
   ];
 

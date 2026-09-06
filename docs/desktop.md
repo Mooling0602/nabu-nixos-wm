@@ -54,13 +54,45 @@ Tab / Shift+Tab 或方向键选择，再按 Enter 确认、Escape 取消，也�
 - 保留电源键不触发挂起/关机的设备规避设置。未添加自动挂起策略。
 
 默认新窗口占半屏；单列自动居中，切换到放不下的列时居中。
-Noctalia 设置窗口使用相对屏幕大小的浮动尺寸。显示输出名称、缩放和旋转
-仍由现有自动选择处理；需要定制时先用 `niri msg outputs` 确认实际输出名称。
+Noctalia 设置窗口使用相对屏幕大小的浮动尺寸。内屏 `DSI-1` 默认旋转 270 度，
+与键盘横置方向一致；分辨率、刷新率和缩放仍自动选择。
 Noctalia 的概览背景层已接入 niri；具体背景效果在 Noctalia 设置中选择。
 
 Thunar 配合 GVfs / UDisks 提供文件浏览、回收站和可移动设备访问。
 X11 应用通过 niri 自动启动的 xwayland-satellite 运行。
 NixOS 的 niri 模块提供 GTK 文件选择器、GNOME 屏幕共享 portal、密钥环和 XDG 自启动。
+
+## 屏幕方向
+
+各阶段分别设置方向，不能用一条内核参数控制整条启动流程：
+
+| 阶段 | 配置 | 当前行为 |
+| --- | --- | --- |
+| systemd-boot 菜单、EFI stub | UEFI 文本控制台 | 仍取决于固件提供的方向 |
+| Linux 启动日志、TTY | `fbcon=rotate:1` | 顺时针 90 度横屏，保留已有设置 |
+| Noctalia 登录界面 | `settings.output.transforms = "DSI-1:270"` | 登录界面自身的合成器旋转内屏 |
+| niri 桌面、桌面锁屏 | `output "DSI-1" { transform "270"; }` | 启动时直接采用横屏，无需登录后运行 IPC 命令 |
+
+niri 的角度按逆时针计算，270 度与 fbcon 的顺时针 90 度一致。
+登录界面独立于 niri，必须单独设置；这里只匹配内屏，未固定其他输出的方向。
+先验证横屏下触摸四角是否与画面对应，不预先叠加全局触摸校准矩阵。
+
+systemd-boot 的 `console-mode` 选择固件提供的文本模式，不是旋转角度。
+要让引导菜单也横置，需要在 Project Aloha UEFI 的图形/文本控制台实现中提供横屏，
+或另行开发在引导菜单启动前加载的旋转控制台驱动。当前 NixOS 镜像不构建该 UEFI，
+因此这部分没有用无效的 loader.conf 或 Linux 参数代替。完整横屏启动链仍需单独
+验证固件侧方案，包括菜单文字、按键操作及交给 Linux 后的显示接管。
+
+应用后重启，依次检查登录界面和桌面；在桌面运行 `niri msg outputs` 检查 DSI-1。
+已有用户配置应保留 `include "/etc/niri/config.kdl"`，且没有后续覆盖内屏方向的设置。
+临时手持竖屏仍可运行 `niri msg output DSI-1 transform normal`；恢复横屏使用
+`niri msg output DSI-1 transform 270`。默认方向由 KDL 管理。
+
+参考：
+- [niri 输出配置](https://niri-wm.github.io/niri/Configuration%3A-Outputs.html)
+- [Noctalia Greeter 1.2.1 示例配置](https://github.com/noctalia-dev/noctalia-greeter/blob/v1.2.1/examples/greeter.toml)
+- [Linux fbcon 旋转](https://docs.kernel.org/fb/fbcon.html)
+- [systemd-boot 配置](https://github.com/systemd/systemd/blob/v261/man/loader.conf.xml)
 
 ## 应用与验证
 

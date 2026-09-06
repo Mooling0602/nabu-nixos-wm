@@ -2,6 +2,11 @@
 // https://github.com/niri-wm/niri/blob/v26.04/resources/default-config.kdl
 // https://docs.noctalia.dev/noctalia/compositor-settings/niri/
 
+// Built-in panel in the keyboard's landscape orientation.
+output "DSI-1" {
+    transform "270"
+}
+
 input {
     keyboard {
         repeat-delay 400

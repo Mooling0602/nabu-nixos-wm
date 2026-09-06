@@ -25,6 +25,8 @@
 
   boot.loader.systemd-boot = {
     enable = true;
+    # The menu uses the UEFI text console. Linux/Wayland rotation settings
+    # cannot rotate it; landscape here requires firmware console support.
     # Defaults to `hardware.deviceTree.enable && name != null`; kept explicit.
     installDeviceTree = true;
 

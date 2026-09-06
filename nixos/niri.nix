@@ -55,6 +55,8 @@ in
       user.default = "nabu";
       idle.timeout = 0; # Keep the greeter display awake.
       keyboard.layout = "us";
+      # The greeter has its own compositor and does not read niri's config.
+      output.transforms = "DSI-1:270";
     };
   };
 
