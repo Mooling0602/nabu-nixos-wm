@@ -165,14 +165,18 @@
   };
 
   # == Audio (quad speakers, CS35L41 amplifiers) ==============================
-  # The ALSA UCM profile (conf.d/snd_soc_sm8150 + Xiaomi/nabu/HiFi.conf) is
-  # merged into alsa-ucm-conf by the flake overlay (see pkgs/default.nix).
-  # ALSA only searches the alsa-ucm-conf datadir, never /etc, and the conf.d
-  # directory must be the card's driver name "snd_soc_sm8150".
+  # WORKAROUND: WirePlumber/ACP has no working UCM for this card yet, so we
+  # bypass UCM entirely:
+  #   - nabu-speaker-route arms the CS35L41 TDM route directly at boot (the
+  #     QUAT_TDM_RX_0 mixer + the four soft-ramp/volume controls) — the job
+  #     the UCM EnableSequence would normally do.
+  #   - a WirePlumber rule sets api.alsa.use-ucm=false and api.alsa.pcm=hw:0,0
+  #     so PipeWire exposes the card as a plain stereo sink.
+  # (Same approach as Mooling0602's nabu-nixos-kde-config.)
   #
-  # In practice WirePlumber/ACP has no working UCM for this card, so we also
-  # arm the CS35L41 TDM route directly at boot and expose the card to PipeWire
-  # as a plain hw:0,0 sink (same approach as Mooling0602's nabu-nixos-kde-config).
+  # The proper fix is to load the UCM profile (pkgs.nabu-alsa-ucm, kept as a
+  # fallback in pkgs/default.nix) through alsa-ucm-conf; revisit once
+  # WirePlumber/ACP can consume this card's UCM.
   systemd.services.nabu-speaker-route = {
     description = "Enable nabu speaker route (CS35L41)";
     wantedBy = [ "multi-user.target" ];
