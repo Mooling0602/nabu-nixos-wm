@@ -69,6 +69,7 @@ NixOS 的 niri 模块提供 GTK 文件选择器、GNOME 屏幕共享 portal、�
 ```sh
 sudo nixos-rebuild switch --flake .#nabu
 niri validate --config /etc/niri/config.kdl
+niri validate
 ```
 
 新加入的文件需要先纳入 Git 跟踪，Git flake 才能读取；不需要提交。
@@ -76,8 +77,17 @@ niri validate --config /etc/niri/config.kdl
 每次构建系统配置都会使用构建机上的 niri 校验 KDL，交叉构建也不需要运行 aarch64 程序。
 软件包和会话环境更新后建议重新登录，再检查截图、锁屏解锁、媒体键和文件选择器。
 
-`~/.config/niri/config.kdl` **优先于** `/etc/niri/config.kdl`。
-若修改系统配置后快捷键仍未更新，先检查是否有用户级配置覆盖；备份后按需移走它。
+`~/.config/niri/config.kdl` 是归 `nabu` 所有的可编辑普通文件，通过下面一行引用系统配置
+（niri 的语法是 `include`，不是 `import`）：
+
+```kdl
+include "/etc/niri/config.kdl"
+```
+
+镜像首次启动时，systemd-tmpfiles 创建归 `nabu` 所有的 `~/.config`、
+`~/.config/niri`（0700），并复制初始配置为普通文件（0600）。
+已有配置不会被覆盖，用户和 Noctalia 可继续在引用之后添加本地设置或主题引用。
+系统配置更新仍由 NixOS 管理；已有系统若缺少这行 `include`，需手动补到用户文件开头。
 也可以在部署前直接运行 `niri validate --config nixos/niri.kdl` 检查语法。
 KDL 校验不验证 IPC 的运行效果，锁屏、触摸输入和屏幕共享仍需真机测试。
 

@@ -2,11 +2,19 @@
 # The greeter starts niri-session, which imports PATH into the user manager
 # and runs XDG autostart applications, including the input method.
 {
+  config,
   pkgs,
   ...
 }:
 
 let
+  nabuUser = config.users.users.nabu;
+  niriConfigDir = "${nabuUser.home}/.config/niri";
+
+  initialUserConfig = pkgs.writeText "niri-user-config.kdl" ''
+    include "/etc/niri/config.kdl"
+  '';
+
   # Toggle the on-screen keyboard for tablet input.
   wvkbdToggle = pkgs.writeShellScriptBin "wvkbd-toggle" ''
     WVKBD_EXEC="wvkbd-mobintl"
@@ -23,6 +31,14 @@ in
     enable = true;
     useNautilus = false;
   };
+
+  # Seed a writable user config on first boot. C copies a regular file only
+  # when absent, preserving subsequent user edits and Noctalia theme includes.
+  systemd.tmpfiles.rules = [
+    "d ${nabuUser.home}/.config 0700 nabu ${nabuUser.group} - -"
+    "d ${niriConfigDir} 0700 nabu ${nabuUser.group} - -"
+    "C ${niriConfigDir}/config.kdl 0600 nabu ${nabuUser.group} - ${initialUserConfig}"
+  ];
 
   # == Desktop shell ==========================================================
   programs.noctalia = {
@@ -84,7 +100,7 @@ in
   ];
 
   # Validate on the build machine, including when cross-compiling for aarch64.
-  # A user config at ~/.config/niri/config.kdl takes precedence over this file.
+  # The writable user entry point includes this shared configuration first.
   environment.etc."niri/config.kdl".source = pkgs.runCommand "validated-niri-config.kdl" { } ''
     ${pkgs.buildPackages.niri}/bin/niri validate --config ${./niri.kdl}
     cp ${./niri.kdl} "$out"
