@@ -1,0 +1,221 @@
+// Niri 26.04 defaults with Noctalia v5 integration and tablet shortcuts.
+// https://github.com/niri-wm/niri/blob/v26.04/resources/default-config.kdl
+// https://docs.noctalia.dev/noctalia/compositor-settings/niri/
+
+input {
+    keyboard {
+        repeat-delay 400
+        repeat-rate 25
+        xkb {
+            layout "us"
+        }
+    }
+
+    touchpad {
+        tap
+        dwt
+        natural-scroll
+    }
+
+    // Keep the tablet power key from triggering suspend or shutdown.
+    disable-power-key-handling
+}
+
+layout {
+    gaps 12
+    center-focused-column "on-overflow"
+    always-center-single-column
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+    default-column-width { proportion 0.5; }
+    preset-window-heights {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+    focus-ring {
+        width 3
+        active-color "#7fc8ff"
+        inactive-color "#505050"
+    }
+    border { off; }
+}
+
+// Keep startup help visible; Mod+Shift+/ opens it again at any time.
+hotkey-overlay { }
+screenshot-path "~/Pictures/Screenshots/Screenshot-%Y-%m-%d-%H-%M-%S.png"
+
+// Noctalia owns the panels, notifications, wallpaper and lock screen.
+spawn-at-startup "noctalia"
+
+window-rule {
+    geometry-corner-radius 20
+    clip-to-geometry true
+}
+
+// Proportional dimensions keep settings usable at different tablet scales.
+window-rule {
+    match app-id=r#"^dev\.noctalia\.Noctalia$"#
+    open-floating true
+    default-column-width { proportion 0.85; }
+    default-window-height { proportion 0.85; }
+}
+
+window-rule {
+    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    open-floating true
+}
+
+// Place Noctalia's overview wallpaper behind the workspace previews.
+layer-rule {
+    match namespace="^noctalia-backdrop"
+    place-within-backdrop true
+}
+
+// Allow notification actions and window activation from Noctalia.
+debug {
+    honor-xdg-activation-with-invalid-serial
+}
+
+binds {
+    // Help and shell entry points. Titles also appear in niri's hotkey overlay.
+    Mod+Shift+Slash { show-hotkey-overlay; }
+    Mod+Space repeat=false hotkey-overlay-title="Application launcher" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
+    Mod+S repeat=false hotkey-overlay-title="Control center" { spawn "noctalia" "msg" "panel-toggle" "control-center"; }
+    Mod+Comma repeat=false hotkey-overlay-title="Desktop settings" { spawn "noctalia" "msg" "settings-toggle"; }
+    Alt+Tab repeat=false hotkey-overlay-title="Window switcher" { spawn "noctalia" "msg" "window-switcher"; }
+    Mod+Return hotkey-overlay-title="Terminal: foot" { spawn "foot"; }
+    Mod+E hotkey-overlay-title="File manager: Thunar" { spawn "thunar"; }
+    Mod+Shift+K repeat=false hotkey-overlay-title="Toggle on-screen keyboard" { spawn "wvkbd-toggle"; }
+    Super+Alt+L repeat=false hotkey-overlay-title="Lock screen" { spawn "noctalia" "msg" "session" "lock"; }
+
+    // Hardware controls remain available on the lock screen.
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "noctalia" "msg" "volume-up"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "noctalia" "msg" "volume-down"; }
+    XF86AudioMute allow-when-locked=true repeat=false { spawn "noctalia" "msg" "volume-mute"; }
+    XF86AudioMicMute allow-when-locked=true repeat=false { spawn "noctalia" "msg" "mic-mute"; }
+    XF86MonBrightnessUp allow-when-locked=true { spawn "noctalia" "msg" "brightness-up"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "noctalia" "msg" "brightness-down"; }
+    XF86AudioPlay allow-when-locked=true repeat=false { spawn "noctalia" "msg" "media" "toggle"; }
+    XF86AudioPause allow-when-locked=true repeat=false { spawn "noctalia" "msg" "media" "pause"; }
+    XF86AudioStop allow-when-locked=true repeat=false { spawn "noctalia" "msg" "media" "stop"; }
+    XF86AudioPrev allow-when-locked=true { spawn "noctalia" "msg" "media" "previous"; }
+    XF86AudioNext allow-when-locked=true { spawn "noctalia" "msg" "media" "next"; }
+
+    // Focus and rearrange columns horizontally, or windows within a column vertically.
+    Mod+Left  { focus-column-left; }
+    Mod+Down  { focus-window-down; }
+    Mod+Up    { focus-window-up; }
+    Mod+Right { focus-column-right; }
+    Mod+H { focus-column-left; }
+    Mod+J { focus-window-down; }
+    Mod+K { focus-window-up; }
+    Mod+L { focus-column-right; }
+    Mod+Ctrl+Left  { move-column-left; }
+    Mod+Ctrl+Down  { move-window-down; }
+    Mod+Ctrl+Up    { move-window-up; }
+    Mod+Ctrl+Right { move-column-right; }
+    Mod+Ctrl+H { move-column-left; }
+    Mod+Ctrl+J { move-window-down; }
+    Mod+Ctrl+K { move-window-up; }
+    Mod+Ctrl+L { move-column-right; }
+    Mod+Home { focus-column-first; }
+    Mod+End { focus-column-last; }
+    Mod+Ctrl+Home { move-column-to-first; }
+    Mod+Ctrl+End { move-column-to-last; }
+
+    // Monitor navigation uses arrows to preserve Mod+Shift+K for the keyboard.
+    Mod+Shift+Left  { focus-monitor-left; }
+    Mod+Shift+Down  { focus-monitor-down; }
+    Mod+Shift+Up    { focus-monitor-up; }
+    Mod+Shift+Right { focus-monitor-right; }
+    Mod+Ctrl+Shift+Left  { move-column-to-monitor-left; }
+    Mod+Ctrl+Shift+Down  { move-column-to-monitor-down; }
+    Mod+Ctrl+Shift+Up    { move-column-to-monitor-up; }
+    Mod+Ctrl+Shift+Right { move-column-to-monitor-right; }
+
+    // Workspaces are dynamic: an index beyond the last one selects the empty workspace.
+    Mod+Page_Down { focus-workspace-down; }
+    Mod+Page_Up { focus-workspace-up; }
+    Mod+U { focus-workspace-down; }
+    Mod+I { focus-workspace-up; }
+    Mod+Ctrl+Page_Down { move-column-to-workspace-down; }
+    Mod+Ctrl+Page_Up { move-column-to-workspace-up; }
+    Mod+Ctrl+U { move-column-to-workspace-down; }
+    Mod+Ctrl+I { move-column-to-workspace-up; }
+    Mod+Shift+Page_Down { move-workspace-down; }
+    Mod+Shift+Page_Up { move-workspace-up; }
+    Mod+Shift+U { move-workspace-down; }
+    Mod+Shift+I { move-workspace-up; }
+    Mod+Tab { focus-workspace-previous; }
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+Ctrl+1 { move-column-to-workspace 1; }
+    Mod+Ctrl+2 { move-column-to-workspace 2; }
+    Mod+Ctrl+3 { move-column-to-workspace 3; }
+    Mod+Ctrl+4 { move-column-to-workspace 4; }
+    Mod+Ctrl+5 { move-column-to-workspace 5; }
+    Mod+Ctrl+6 { move-column-to-workspace 6; }
+    Mod+Ctrl+7 { move-column-to-workspace 7; }
+    Mod+Ctrl+8 { move-column-to-workspace 8; }
+    Mod+Ctrl+9 { move-column-to-workspace 9; }
+
+    // Rate-limit vertical wheel navigation so one gesture does not skip workspaces.
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+    Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+    Mod+Ctrl+WheelScrollUp cooldown-ms=150 { move-column-to-workspace-up; }
+    Mod+WheelScrollRight { focus-column-right; }
+    Mod+WheelScrollLeft { focus-column-left; }
+    Mod+Ctrl+WheelScrollRight { move-column-right; }
+    Mod+Ctrl+WheelScrollLeft { move-column-left; }
+    Mod+Shift+WheelScrollDown { focus-column-right; }
+    Mod+Shift+WheelScrollUp { focus-column-left; }
+    Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
+    Mod+Ctrl+Shift+WheelScrollUp { move-column-left; }
+
+    // Group windows; the default Mod+Comma is reserved for Noctalia settings.
+    Mod+BracketLeft { consume-or-expel-window-left; }
+    Mod+BracketRight { consume-or-expel-window-right; }
+    Mod+Ctrl+Comma { consume-window-into-column; }
+    Mod+Period { expel-window-from-column; }
+    Mod+R { switch-preset-column-width; }
+    Mod+Shift+R { switch-preset-column-width-back; }
+    Mod+Ctrl+Shift+R { switch-preset-window-height; }
+    Mod+Ctrl+R { reset-window-height; }
+    Mod+Minus { set-column-width "-10%"; }
+    Mod+Equal { set-column-width "+10%"; }
+    Mod+Shift+Minus { set-window-height "-10%"; }
+    Mod+Shift+Equal { set-window-height "+10%"; }
+    Mod+F repeat=false { maximize-column; }
+    Mod+Shift+F repeat=false { fullscreen-window; }
+    Mod+M repeat=false { maximize-window-to-edges; }
+    Mod+Ctrl+F { expand-column-to-available-width; }
+    Mod+C { center-column; }
+    Mod+Ctrl+C { center-visible-columns; }
+    Mod+V repeat=false { toggle-window-floating; }
+    Mod+Shift+V repeat=false { switch-focus-between-floating-and-tiling; }
+    Mod+W repeat=false { toggle-column-tabbed-display; }
+    Mod+O repeat=false { toggle-overview; }
+
+    // The extra region shortcut also works on keyboards without Print Screen.
+    Print repeat=false { screenshot; }
+    Ctrl+Print repeat=false { screenshot-screen; }
+    Alt+Print repeat=false { screenshot-window; }
+    Mod+Shift+S repeat=false { screenshot; }
+
+    // Keep niri's quit confirmation and allow escaping keyboard grabs in VMs.
+    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+    Mod+Q repeat=false { close-window; }
+    Mod+Shift+Q repeat=false { quit; }
+}

@@ -22,6 +22,13 @@ UEFI firmware (Project Aloha / DBKP)
 * **Qualcomm userspace**: Fedora-aligned `rmtfs` / `tqftpserv`, ALSA UCM profiles for the quad speakers, a pm8150 RTC udev rule, and an ath10k shutdown workaround. The QRTR name service and PD mapper are provided by the kernel.
 * **Firmware**: redistributable Qualcomm firmware via `hardware.enableRedistributableFirmware` + device-specific files (adsp/modem/venus/cirrus/novatek) packaged from the postmarketOS firmware repo.
 
+## Desktop
+
+The image includes niri + Noctalia, Fcitx5 Chinese input, an on-screen keyboard,
+and Thunar. Press **Super+Shift+/** for shortcut help. Edit `nixos/niri.kdl`
+for layout and keybindings; `nixos/niri.nix` manages packages and services.
+See the [desktop guide and shortcut reference](docs/desktop.md) (Chinese).
+
 ## Build
 
 On any Linux machine with Nix (flakes enabled):

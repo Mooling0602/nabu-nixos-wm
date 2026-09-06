@@ -22,6 +22,12 @@ UEFI 固件（Project Aloha / DBKP）
 * **高通用户态服务**：与 Fedora 预设一致的 `rmtfs` / `tqftpserv`，四扬声器 ALSA UCM 配置，pm8150 RTC udev 规则，以及关机时卸载 ath10k 的规避服务。QRTR 名称服务和 PD mapper 由内核提供。
 * **固件**：可再分发的高通固件（`hardware.enableRedistributableFirmware`）+ 设备专属文件（adsp/modem/venus/cirrus/novatek，来自 postmarketOS 固件仓库）。
 
+## 桌面
+
+镜像包含 niri + Noctalia、Fcitx5 中文输入法、虚拟键盘和 Thunar 文件管理器。
+按 **Super+Shift+/** 查看快捷键帮助。布局和键位在 `nixos/niri.kdl`，
+软件包和服务在 `nixos/niri.nix`。详见[桌面使用与快捷键说明](docs/desktop.md)。
+
 ## 构建
 
 任何装了 Nix（启用 flakes）的 Linux 机器：
