@@ -165,13 +165,10 @@
   };
 
   # == Audio (quad speakers, CS35L41 amplifiers) ==============================
-  # ALSA UCM2 lives under /etc/alsa/ucm2 (not /etc/alsa-ucm2): the hyphenated
-  # path is not on ALSA's search path, so the sm8150/nabu profile would never
-  # load and the CS35L41 TDM route stays unconfigured (silent speakers).
-  environment.etc."alsa/ucm2/conf.d/sm8150/sm8150.conf".source =
-    "${pkgs.nabu-alsa-ucm}/sm8150.conf";
-  environment.etc."alsa/ucm2/Xiaomi/nabu/HiFi.conf".source =
-    "${pkgs.nabu-alsa-ucm}/HiFi.conf";
+  # The ALSA UCM profile (conf.d/snd_soc_sm8150 + Xiaomi/nabu/HiFi.conf) is
+  # merged into alsa-ucm-conf by the flake overlay (see pkgs/default.nix).
+  # ALSA only searches the alsa-ucm-conf datadir, never /etc, and the conf.d
+  # directory must be the card's driver name "snd_soc_sm8150".
 
   # == Quirks =================================================================
   # Force /dev/rtc symlink to rtc1 (pm8150 RTC keeps time when powered off)
