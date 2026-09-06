@@ -68,7 +68,7 @@ NixOS 的 niri 模块提供 GTK 文件选择器、GNOME 屏幕共享 portal、�
 
 | 阶段 | 配置 | 当前行为 |
 | --- | --- | --- |
-| systemd-boot 菜单、EFI stub | UEFI 文本控制台 | 仍取决于固件提供的方向 |
+| systemd-boot 菜单 | `EFI/systemd/drivers/GopRotate_aa64.efi` | 加载原 rEFInd 使用的旋转驱动，用户已验证菜单横屏 |
 | Linux 启动日志、TTY | `fbcon=rotate:1` | 顺时针 90 度横屏，保留已有设置 |
 | Noctalia 登录界面 | `settings.output.transforms = "DSI-1:270"` | 登录界面自身的合成器旋转内屏 |
 | niri 桌面、桌面锁屏 | `output "DSI-1" { transform "270"; }` | 启动时直接采用横屏，无需登录后运行 IPC 命令 |
@@ -78,10 +78,16 @@ niri 的角度按逆时针计算，270 度与 fbcon 的顺时针 90 度一致。
 先验证横屏下触摸四角是否与画面对应，不预先叠加全局触摸校准矩阵。
 
 systemd-boot 的 `console-mode` 选择固件提供的文本模式，不是旋转角度。
-要让引导菜单也横置，需要在 Project Aloha UEFI 的图形/文本控制台实现中提供横屏，
-或另行开发在引导菜单启动前加载的旋转控制台驱动。当前 NixOS 镜像不构建该 UEFI，
-因此这部分没有用无效的 loader.conf 或 Linux 参数代替。完整横屏启动链仍需单独
-验证固件侧方案，包括菜单文字、按键操作及交给 Linux 后的显示接管。
+菜单横屏由 GopRotate 驱动提供，无需重刷 UEFI。驱动沿用旧 rEFInd 引导资源中
+`BOOT/drivers_aa64/GopRotate_aa64.efi`，来源版本和哈希在 `nixos/boot.nix` 固定。
+systemd-boot 会在显示菜单前加载 ESP 的 `EFI/systemd/drivers/` 中对应架构的驱动；
+保留文件名的 `aa64.efi` 后缀，不需要复制 rEFInd 本体或 `refind.conf`。
+
+`boot.loader.systemd-boot.extraFiles` 同时用于 `nixos-rebuild boot/switch` 和
+`nabu-esp` 的 `esp.img` / `efi-files.zip` 打包，包含旋转驱动和 Android 启动程序。
+部署后可以检查 `/boot/efi/EFI/systemd/drivers/GopRotate_aa64.efi` 是否存在，
+再重启验证菜单、登录界面、桌面及显示接管。此前手动放入同一驱动若使用了不同文件名，
+应移走旧副本，只保留这一份，避免同一驱动被重复加载。
 
 应用后重启，依次检查登录界面和桌面；在桌面运行 `niri msg outputs` 检查 DSI-1。
 已有用户配置应保留 `include "/etc/niri/config.kdl"`，且没有后续覆盖内屏方向的设置。

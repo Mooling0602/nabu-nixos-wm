@@ -10,9 +10,20 @@
 # wires this up natively via boot.loader.systemd-boot.installDeviceTree, so no
 # `dtb=` kernel parameter and no UKI are needed.
 {
+  pkgs,
   ...
 }:
 
+let
+  # Reuse the fixed source shipped with the original nabu rEFInd setup.
+  dualboot = pkgs.fetchFromGitHub {
+    owner = "hybrid-orbital";
+    repo = "nabu_fedora_packages";
+    rev = "cee0eec4d4f8681bf6fe423ff51904a649340ecd";
+    sha256 = "0llfds8a1dfn9qldg6gf4kp50mnpb619vwf91bw08cqsabnsyhm3";
+  };
+  efiFiles = "${dualboot}/nabu-fedora-dualboot-efi/boot/efi/EFI";
+in
 {
   # Build the nabu device tree so systemd-boot can install it to the ESP.
   hardware.deviceTree = {
@@ -25,10 +36,15 @@
 
   boot.loader.systemd-boot = {
     enable = true;
-    # The menu uses the UEFI text console. Linux/Wayland rotation settings
-    # cannot rotate it; landscape here requires firmware console support.
     # Defaults to `hardware.deviceTree.enable && name != null`; kept explicit.
     installDeviceTree = true;
+
+    # systemd-boot loads drivers with the aa64.efi suffix before its menu.
+    # extraFiles also deploys these files on nixos-rebuild boot/switch.
+    extraFiles = {
+      "EFI/systemd/drivers/GopRotate_aa64.efi" = "${efiFiles}/BOOT/drivers_aa64/GopRotate_aa64.efi";
+      "EFI/Android/Reboot2Android.efi" = "${efiFiles}/Android/Reboot2Android.efi";
+    };
 
     # Android dualboot entry (Project Aloha's Reboot2Android stub).
     extraEntries."android.conf" = ''

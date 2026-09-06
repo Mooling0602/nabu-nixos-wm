@@ -19,17 +19,19 @@
       # rEFInd).  systemd-boot installs to the removable fallback
       # /EFI/BOOT/BOOTAA64.EFI (Project Aloha has no NVRAM variables); its
       # loader entries reference the kernel/initrd/DTB under /nixos on the ESP.
-      # The Android dualboot stub is kept from the reference Fedora dualboot
-      # package.
+      # Extra EFI files and menu entries come from the same configuration used
+      # by nixos-rebuild, including the rotation driver and Android stub.
       mkEsp =
         pkgs: cfg:
         let
-          dualboot = pkgs.fetchFromGitHub {
-            owner = "hybrid-orbital";
-            repo = "nabu_fedora_packages";
-            rev = "cee0eec4d4f8681bf6fe423ff51904a649340ecd";
-            sha256 = "0llfds8a1dfn9qldg6gf4kp50mnpb619vwf91bw08cqsabnsyhm3";
-          };
+          extraFiles = lib.concatStringsSep "\n" (lib.mapAttrsToList
+            (destination: source: ''
+              install -Dm644 ${lib.escapeShellArg (toString source)} ${lib.escapeShellArg "stage/${destination}"}
+            '') cfg.boot.loader.systemd-boot.extraFiles);
+          extraEntries = lib.concatStringsSep "\n" (lib.mapAttrsToList
+            (name: content: ''
+              install -Dm644 ${pkgs.writeText name content} ${lib.escapeShellArg "stage/loader/entries/${name}"}
+            '') cfg.boot.loader.systemd-boot.extraEntries);
           systemdBoot = "${cfg.systemd.package}/lib/systemd/boot/efi/systemd-bootaa64.efi";
           kernel = "${cfg.boot.kernelPackages.kernel}/${cfg.system.boot.loader.kernelFile}";
           initrd = "${cfg.system.build.initialRamdisk}/${cfg.system.boot.loader.initrdFile}";
@@ -50,10 +52,9 @@
           install -m644 ${systemdBoot} stage/EFI/BOOT/BOOTAA64.EFI
           install -m644 ${systemdBoot} stage/EFI/systemd/systemd-bootaa64.efi
 
-          # Android dualboot stub.
-          install -m644 \
-            ${dualboot}/nabu-fedora-dualboot-efi/boot/efi/EFI/Android/Reboot2Android.efi \
-            stage/EFI/Android/Reboot2Android.efi
+          # Keep the image and on-device systemd-boot deployment in sync.
+          ${extraFiles}
+          ${extraEntries}
 
           # Kernel, initrd, device tree.
           install -m644 ${kernel} stage/nixos/kernel
@@ -76,12 +77,6 @@
           sort-key nixos
           EOF
 
-          cat > stage/loader/entries/android.conf <<EOF
-          title Android
-          efi /EFI/Android/Reboot2Android.efi
-          sort-key o_android
-          EOF
-
           # FAT timestamps cannot represent the Nix store's Unix epoch.
           find stage -exec touch -h -t 198001010000 {} +
           truncate -s 350105600 "$out/esp.img"
@@ -93,6 +88,7 @@
           fsck.fat -n "$out/esp.img"
           mdir -i "$out/esp.img" ::/EFI/BOOT/BOOTAA64.EFI
           mdir -i "$out/esp.img" ::/EFI/Android/Reboot2Android.efi
+          mdir -i "$out/esp.img" ::/EFI/systemd/drivers/GopRotate_aa64.efi
           mdir -i "$out/esp.img" ::/nixos/nabu.dtb
           (cd stage && zip -qr "$out/efi-files.zip" EFI loader nixos)
         '';
