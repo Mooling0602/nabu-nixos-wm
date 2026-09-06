@@ -29,6 +29,8 @@ and Thunar. Press **Super+Shift+/** for shortcut help. Edit `nixos/niri.kdl`
 for layout and keybindings; `nixos/niri.nix` manages packages and services.
 See the [desktop guide and shortcut reference](docs/desktop.md) (Chinese).
 
+Verbose boot diagnostics are enabled; see the [boot logging guide](docs/boot-logging.md) (Chinese).
+
 ## Build
 
 On any Linux machine with Nix (flakes enabled):

@@ -51,6 +51,18 @@ screenshot-path "~/Pictures/Screenshots/Screenshot-%Y-%m-%d-%H-%M-%S.png"
 // Noctalia owns the panels, notifications, wallpaper and lock screen.
 spawn-at-startup "noctalia"
 
+
+// foot terminal 
+prefer-no-csd
+
+window-rule {
+    match app-id=r#"^foot$"#
+
+    geometry-corner-radius 8
+    clip-to-geometry true
+    draw-border-with-background false
+}
+
 window-rule {
     geometry-corner-radius 20
     clip-to-geometry true

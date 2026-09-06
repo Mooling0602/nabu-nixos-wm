@@ -28,6 +28,8 @@ UEFI 固件（Project Aloha / DBKP）
 按 **Super+Shift+/** 查看快捷键帮助。布局和键位在 `nixos/niri.kdl`，
 软件包和服务在 `nixos/niri.nix`。详见[桌面使用与快捷键说明](docs/desktop.md)。
 
+启动阶段默认显示详细日志；应用方法与历史日志查看见[启动日志排查](docs/boot-logging.md)。
+
 ## 构建
 
 任何装了 Nix（启用 flakes）的 Linux 机器：

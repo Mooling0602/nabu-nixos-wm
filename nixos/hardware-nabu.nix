@@ -20,7 +20,6 @@
 
   # == Kernel =================================================================
   boot.kernelPackages = pkgs.linuxKernel.packagesFor pkgs.kernel-sm8150;
-  # No `quiet`: let kernel/systemd messages scroll on the console.
   # root=PARTLABEL=linux is technically redundant under the systemd initrd
   # (which boots with root=fstab from fileSystems."/"), but it boots fine on
   # real hardware and documents the root device, so it is kept here.
@@ -34,15 +33,7 @@
     # panel (otherwise fbcon may not bind and the screen stays black).
     "console=tty0"
     "fbcon=rotate:1"
-    "systemd.show_status=yes"
-    "loglevel=7"
   ];
-
-  # Boot splash: the nabu DTB has no simple-framebuffer node, so the panel
-  # only comes up via the MSM DRM stack. The reference (nabu_fedora) ships
-  # plymouth in the initrd (hostonly=no) to light the panel early. We keep
-  # console=tty0 + loglevel=7 above so a failure still leaves text on screen.
-  boot.plymouth.enable = true;
 
   # The ESP is managed by systemd-boot (see boot.nix): nixos-rebuild boot|switch
   # runs bootctl install + the systemd-boot builder, which deploys the kernel,
@@ -67,7 +58,7 @@
     "ufshcd_core"
     # Early display stack: no simple-framebuffer node, the panel is driven by
     # the MSM/KMS DRM driver, so it must be present in the initramfs for
-    # plymouth/fbcon to light the screen before the rootfs is mounted.
+    # fbcon to light the screen before the rootfs is mounted.
     "drm"
     "drm_kms_helper"
     "msm"
@@ -75,6 +66,10 @@
     "ktz8866"
   ];
   boot.initrd.kernelModules = [
+    # Load the backlight and panel explicitly so fbcon does not depend on
+    # Plymouth or a later userspace application to bring up the display.
+    "ktz8866"
+    "panel_novatek_nt36523"
     "ufs_qcom"
     "ufshcd_pltfrm"
   ];
