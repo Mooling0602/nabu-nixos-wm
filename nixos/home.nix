@@ -5,7 +5,9 @@
     inputs.nix-flatpak.homeManagerModules.nix-flatpak
   ];
   services.flatpak.enable = true;
-  services.flatpak.packages = [];
+  services.flatpak.packages = [
+    "cn.wps.wps_365"
+  ];
   programs.vscode.enable = true;
   programs.direnv = {
     enable = true;
