@@ -1,17 +1,39 @@
 {
   description = "NixOS for Xiaomi Pad 5 (nabu)";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    xwayland-satellite = {
+      url = "git+https://github.com/Mooling0602/xwayland-satellite";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { self, nixpkgs }:
+    { self, nixpkgs, home-manager, xwayland-satellite, ... }:
     let
       lib = nixpkgs.lib;
 
       sharedModules = [
         {
-          nixpkgs.overlays = [ (import ./pkgs) ];
+          nixpkgs.overlays = [
+            (import ./pkgs)
+            # Expose the user's fork of xwayland-satellite as pkgs.xwayland-satellite,
+            # overriding the nixpkgs one.  Mirrors dms-starter's flake.nix.
+            (
+              final: prev:
+              {
+                xwayland-satellite =
+                  xwayland-satellite.packages.${final.stdenv.hostPlatform.system}.xwayland-satellite;
+              }
+            )
+          ];
         }
+        home-manager.nixosModules.home-manager
         ./nixos/configuration.nix
       ];
 

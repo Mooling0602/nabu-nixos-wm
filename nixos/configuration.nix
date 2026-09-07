@@ -85,7 +85,16 @@ in
     initialPassword = "nabu";
   };
 
-  # Noctalia greeter handles graphical login; TTY autologin remains enabled.
+  # == Home Manager (per-user packages; see nixos/home.nix) ===================
+  home-manager.useGlobalPkgs = true;
+  home-manager.useUserPackages = true;
+  home-manager.users.nabu = {
+    imports = [ ./home.nix ];
+    # Keep the user's home-manager state in step with the system state version.
+    home.stateVersion = "25.11";
+  };
+
+  # greetd + dms-greeter (见 niri.nix) 接管图形登录，TTY 自动登录仍保留。
   services.getty.autologinUser = "nabu";
 
   # == Nix ====================================================================
@@ -102,7 +111,7 @@ in
 
   # == Locale =================================================================
   time.timeZone = "Asia/Shanghai";
-  i18n.defaultLocale = "en_US.UTF-8";
+  i18n.defaultLocale = "zh_CN.UTF-8";
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "zh_CN.UTF-8";
     LC_IDENTIFICATION = "zh_CN.UTF-8";
@@ -127,8 +136,19 @@ in
     vim
     nano
     git
+    wget
+    curl
+    perl
+    python3
     usbutils
     alsaUtilsMinimal
+    firefox
+    kitty
+    brightnessctl
+    nil
+    nixd
+    clash-verge-rev
+    mission-center
   ];
 
   services.openssh = {

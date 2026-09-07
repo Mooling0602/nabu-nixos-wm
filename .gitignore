@@ -1,2 +1,4 @@
 result-images
 result
+.nix-cache
+.nix-state
