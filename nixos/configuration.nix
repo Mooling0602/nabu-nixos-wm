@@ -154,6 +154,12 @@ in
     mission-center
   ];
 
+  programs.clash-verge = {
+    enable = true;
+    serviceMode = true;
+    tunMode = true;
+  };
+
   services.openssh = {
     enable = true;
     settings = {
