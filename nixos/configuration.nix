@@ -95,6 +95,9 @@ in
 
   # greetd + dms-greeter (见 niri.nix) 接管图形登录，TTY 自动登录仍保留。
   services.getty.autologinUser = "nabu";
+  
+  # Enable flatpak service so nix-flatpak can call it
+  services.flatpak.enable = true;
 
   # == Nix ====================================================================
   nix.settings.experimental-features = [
