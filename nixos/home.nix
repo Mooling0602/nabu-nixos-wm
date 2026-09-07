@@ -24,5 +24,8 @@
     vscode
     gh
     kdePackages.ksshaskpass
+    kdePackages.dolphin
+    kdePackages.kate
+    kdePackages.kdeconnect-kde
   ];
 }
