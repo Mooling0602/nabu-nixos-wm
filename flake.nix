@@ -11,10 +11,11 @@
       url = "git+https://github.com/Mooling0602/xwayland-satellite";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-flatpak.url = "github:gmodena/nix-flatpak";
   };
 
   outputs =
-    { self, nixpkgs, home-manager, xwayland-satellite, ... }:
+    inputs@{ self, nixpkgs, home-manager, nix-flatpak, xwayland-satellite, ... }:
     let
       lib = nixpkgs.lib;
 
@@ -34,6 +35,7 @@
           ];
         }
         home-manager.nixosModules.home-manager
+        nix-flatpak.nixosModules.nix-flatpak
         ./nixos/configuration.nix
       ];
 
@@ -119,6 +121,7 @@
     {
       # Native aarch64 configuration (build on the device / aarch64 builders)
       nixosConfigurations.nabu = lib.nixosSystem {
+        specialArgs = { inherit inputs; };
         modules = sharedModules;
       };
 

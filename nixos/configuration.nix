@@ -1,6 +1,7 @@
 # Base NixOS configuration for Xiaomi Pad 5 (nabu).
 # The current image imports niri + Noctalia; standalone variants are planned.
 {
+  inputs,
   pkgs,
   lib,
   ...
@@ -88,11 +89,9 @@ in
   # == Home Manager (per-user packages; see nixos/home.nix) ===================
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
-  home-manager.users.nabu = {
-    imports = [ ./home.nix ];
-    # Keep the user's home-manager state in step with the system state version.
-    home.stateVersion = "25.11";
-  };
+  home-manager.users.nabu = import ./home.nix;
+  home-manager.extraSpecialArgs = { inherit inputs; };
+  # Keep the user's home-manager state in step with the system state version.
 
   # greetd + dms-greeter (见 niri.nix) 接管图形登录，TTY 自动登录仍保留。
   services.getty.autologinUser = "nabu";
