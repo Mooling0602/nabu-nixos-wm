@@ -15,6 +15,14 @@
   };
   home.stateVersion = "26.11";
   home.packages = with pkgs; [
+    # fonts
+    sarasa-gothic
+    noto-fonts-cjk-serif
+    maple-mono.NF-CN
+
+    # icon theme
+    tela-icon-theme
+
     kitty
     alacritty
     zellij
@@ -31,4 +39,23 @@
     kdePackages.kate
     kdePackages.kdeconnect-kde
   ];
+
+  programs.kitty = {
+    enable = true;
+    font = {
+      name = "Maple Mono NF CN";
+      size = 12;
+    };
+    settings = {
+      background_opacity = 0.6;
+      background_blur = 64;
+      hide_window_decorations = "yes";
+      confirm_os_window_close = 0;
+    };
+  };
+
+  xresources.properties = {
+    "Xcursor.size" = 48;
+    "Xft.dpi" = 192;
+  };
 }
