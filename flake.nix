@@ -1,5 +1,5 @@
 {
-  description = "NixOS for Xiaomi Pad 5 (nabu)";
+  description = "NixOS WM configuration for Xiaomi Pad 5 (nabu)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

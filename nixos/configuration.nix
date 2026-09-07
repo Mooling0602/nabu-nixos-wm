@@ -147,6 +147,7 @@ in
     brightnessctl
     nil
     nixd
+    direnv
     clash-verge-rev
     mission-center
   ];
