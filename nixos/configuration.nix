@@ -162,6 +162,9 @@ in
     };
   };
 
+  services.power-profiles-daemon.enable = true;
+  services.upower.enable = true;
+
   networking.networkmanager.package = networkManagerNabu;
   networking.modemmanager.enable = false;
 
