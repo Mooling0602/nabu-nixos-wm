@@ -31,12 +31,21 @@
             # overriding the nixpkgs one.  Mirrors dms-starter's flake.nix.
             (
               final: prev:
-              {
-                xwayland-satellite =
-                  xwayland-satellite.packages.${final.stdenv.hostPlatform.system}.xwayland-satellite;
-                codex-desktop =
-                  codex-desktop-linux.packages.${final.stdenv.hostPlatform.system}.codex-desktop;
-              }
+                let
+                  codexDesktopPkg =
+                    codex-desktop-linux.packages.${final.stdenv.hostPlatform.system}.codex-desktop;
+                in
+                {
+                  xwayland-satellite =
+                    xwayland-satellite.packages.${final.stdenv.hostPlatform.system}.xwayland-satellite;
+                  codex-desktop = codexDesktopPkg;
+                  # The Codex CLI bundled inside the desktop package (mirrors the
+                  # flake's internal nix/bundled-codex-cli.nix).
+                  codex-cli = final.runCommand "codex-desktop-bundled-cli" { } ''
+                    mkdir -p $out/bin
+                    ln -s ${codexDesktopPkg}/opt/codex-desktop/resources/codex $out/bin/codex
+                  '';
+                }
             )
           ];
         }
