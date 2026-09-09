@@ -18,7 +18,7 @@ final: prev: {
   # The "correct" long-term fix is to load this UCM profile, but ALSA only
   # searches the alsa-ucm-conf datadir (share/alsa/ucm2), never /etc, and
   # WirePlumber/ACP currently has no working UCM for this card.  The current
-  # speaker fix therefore BYPASSES UCM (see nixos/hardware-nabu.nix).
+  # speaker fix therefore BYPASSES UCM (see nixos/modules/system/hardware-nabu.nix).
   #
   # NOTE: do NOT override `alsa-ucm-conf` to merge this in.  That changes
   # alsa-ucm-conf's store path and forces a rebuild of alsa-lib and the whole

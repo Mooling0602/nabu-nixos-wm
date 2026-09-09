@@ -70,8 +70,8 @@ in
     # tablet-as-pointer forwards pen events to wl_pointer. Pending upstream.
     package = pkgs.noctalia-greeter.overrideAttrs (old: {
       patches = (old.patches or [ ]) ++ [
-        ../pkgs/noctalia-greeter/noctalia-greeter-map-cursor-to-output.patch
-        ../pkgs/noctalia-greeter/noctalia-greeter-tablet-as-pointer.patch
+        ../../../pkgs/noctalia-greeter/noctalia-greeter-map-cursor-to-output.patch
+        ../../../pkgs/noctalia-greeter/noctalia-greeter-tablet-as-pointer.patch
       ];
     });
     settings = {

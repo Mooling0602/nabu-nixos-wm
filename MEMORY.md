@@ -82,7 +82,7 @@ nix build .#nabu-uki --print-out-paths   # 全量编译 ~50-60 分钟，需 ≥2
 1. 全量构建 nabu-uki（新设备上）
 2. 失败则读 `nix log <drv>` 修（触摸屏已过，若再挂大概率在 drivers/ 后段或 modules-shrunk/initrd/ukify 环节）
 3. 成功后上机：UEFI → rEFInd → nabu.efi，按 docs/testing-uki.md 判定
-4. rootfs 镜像（`nixos/rootfs-image.nix` 已写好，`scripts/build-image.sh rootfs`；交叉构建 ext4 偶发 flaky，必要时上 aarch64 机器）
+4. rootfs 镜像（`nixos/modules/build/rootfs-image.nix` 已写好，`scripts/build-image.sh rootfs`；交叉构建 ext4 偶发 flaky，必要时上 aarch64 机器）
 5. 首次真机启动调通后：清理 README 状态清单、加 CI、DE 变体（见 README）
 
 ## 5. 环境注意事项（跨设备经验）
@@ -101,9 +101,9 @@ pkgs/kernel/configs/extra-sm8150.config   # 设备附加 fragment（上游 sm815
 pkgs/pd-mapper.nix            # andersson/pd-mapper（qrtr 服务链必需，nixpkgs 无此包）
 pkgs/nabu-firmware.nix        # pmOS 设备固件（adsp/cdsp/modem/wlan/触摸）
 pkgs/alsa-ucm/                # SM8150 UCM 音频配置
-nixos/hardware-nabu.nix       # UFS/ESP 挂载、qrtr→pd-mapper→rmtfs/tqftpserv/q6voiced、RTC、ath10k、zram
-nixos/configuration.nix       # 用户 nabu、fcitx5、NetworkManager+iwd
-nixos/rootfs-image.nix        # 无特权 mke2fs ext4 rootfs 镜像
+nixos/modules/system/hardware-nabu.nix  # UFS/ESP 挂载、qrtr→pd-mapper→rmtfs/tqftpserv/q6voiced、RTC、ath10k、zram
+nixos/configuration.nix + modules/{system,home}  # 用户 nabu、fcitx5、NetworkManager+iwd
+nixos/modules/build/rootfs-image.nix    # 无特权 mke2fs ext4 rootfs 镜像
 scripts/build-image.sh        # esp/uki/rootfs 三种构建模式
 docs/testing-uki.md           # 上机测试步骤与判定标准
 README.md / README_zh_CN.md   # 双语文档（启动链图、状态清单）

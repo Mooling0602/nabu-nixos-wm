@@ -11,7 +11,7 @@
 
 仅面向小米平板 5（nabu）。本仓库生成 rootfs 和 ESP，**不生成 Aloha UEFI 或 DBKP 镜像**，
 也不自动为设备分区。以下步骤假设已经具备可用的 Aloha/双启动环境、关闭 Secure Boot，
-且分区布局与 [`nixos/hardware-nabu.nix`](../nixos/hardware-nabu.nix) 一致：
+且分区布局与 [[`nixos/modules/system/hardware-nabu.nix`](../nixos/modules/system/hardware-nabu.nix) 一致：
 
 | 分区标签 | 用途 | Linux 挂载点 |
 | --- | --- | --- |

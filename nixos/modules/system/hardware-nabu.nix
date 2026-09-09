@@ -220,11 +220,7 @@
   };
 
   # == Networking =============================================================
-  networking.networkmanager = {
-    enable = true;
-    wifi.backend = "iwd";
-  };
-  networking.wireless.enable = false; # avoid wpa_supplicant conflict
+  # NetworkManager + iwd are enabled in network.nix (with the nabu overrides).
 
   # == Zram (matches reference: full-RAM size, zstd) ==========================
   zramSwap = {

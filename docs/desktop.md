@@ -5,8 +5,8 @@
 这是当前发布镜像的默认桌面。相机不可用、低功耗休眠未解决，且仍有偶发启动失败；
 电源键被刻意忽略，锁屏不代表熄屏或低功耗休眠。其他桌面变体仍在[路线图](roadmap.md)中。
 
-`nixos/niri.kdl` 管理布局、输入设备、窗口规则和快捷键；
-`nixos/niri.nix` 管理 NixOS 软件包、服务、登录界面及 KDL 构建校验。
+`nixos/modules/system/niri.kdl` 管理布局、输入设备、窗口规则和快捷键；
+`nixos/modules/system/desktop.nix` 管理 NixOS 软件包、服务、登录界面及 KDL 构建校验。
 当前配置对应 flake.lock 中的 niri 26.04 和 Noctalia 5.0.1。
 
 ## 常用快捷键
@@ -88,7 +88,7 @@ niri 的角度按逆时针计算，270 度与 fbcon 的顺时针 90 度一致。
 
 systemd-boot 的 `console-mode` 选择固件提供的文本模式，不是旋转角度。
 菜单横屏由 GopRotate 驱动提供，无需重刷 UEFI。驱动沿用旧 rEFInd 引导资源中
-`BOOT/drivers_aa64/GopRotate_aa64.efi`，来源版本和哈希在 `nixos/boot.nix` 固定。
+`BOOT/drivers_aa64/GopRotate_aa64.efi`，来源版本和哈希在 `nixos/modules/system/boot.nix` 固定。
 systemd-boot 会在显示菜单前加载 ESP 的 `EFI/systemd/drivers/` 中对应架构的驱动；
 保留文件名的 `aa64.efi` 后缀，不需要复制 rEFInd 本体或 `refind.conf`。
 
@@ -135,7 +135,7 @@ include "/etc/niri/config.kdl"
 `~/.config/niri`（0700），并复制初始配置为普通文件（0600）。
 已有配置不会被覆盖，用户和 Noctalia 可继续在引用之后添加本地设置或主题引用。
 系统配置更新仍由 NixOS 管理；已有系统若缺少这行 `include`，需手动补到用户文件开头。
-也可以在部署前直接运行 `niri validate --config nixos/niri.kdl` 检查语法。
+也可以在部署前直接运行 `niri validate --config nixos/modules/system/niri.kdl` 检查语法。
 KDL 校验不验证 IPC 的运行效果，锁屏、触摸输入和屏幕共享仍需真机测试。
 
 ## 参考

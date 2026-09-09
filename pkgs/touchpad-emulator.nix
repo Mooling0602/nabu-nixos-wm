@@ -6,7 +6,7 @@
 #
 # Upstream's LaunchTouchpadEmulator.sh grants device access with a pkexec
 # chmod hack; on NixOS the configuration instead grants the `input` group
-# access to uinput via udev rules (see nixos/configuration.nix), so only the
+# access to uinput via udev rules (see nixos/modules/system/packages.nix), so only the
 # binary is packaged and the desktop entry execs it directly.
 {
   lib,

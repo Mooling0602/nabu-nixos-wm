@@ -228,7 +228,7 @@ services and desktop support:
 - [Mooling0602/nabu-nixos-kde-config](https://github.com/Mooling0602/nabu-nixos-kde-config): related NixOS experiments on nabu (rather messy, planned to be archived soon).
 - [Mooling0602/dms-starter](https://github.com/Mooling0602/dms-starter): a complete NixOS PC desktop configuration based on DankMaterialShell, targeting x86_64 and multi-device management (aarch64 support is also planned soon).
 - [jhuang6451/nabu_fedora](https://github.com/jhuang6451/nabu_fedora): image, kernel configuration, device service and hardware adaptation references.
-- [nabu_fedora_packages](https://github.com/jhuang6451/nabu_fedora_packages): device packages and boot resources; this repository pins the corresponding resource fork's revision and hash in `boot.nix`.
+- [nabu_fedora_packages](https://github.com/jhuang6451/nabu_fedora_packages): device packages and boot resources; this repository pins the corresponding resource fork's revision and hash in `nixos/modules/system/boot.nix`.
 - [sm8150-mainline/linux](https://gitlab.com/sm8150-mainline/linux): SM8150 mainline kernel work.
 - [Project Aloha](https://github.com/Project-Aloha/mu_aloha_platforms): the device UEFI firmware.
 - [rodriguezst/nabu-dualboot-img](https://github.com/rodriguezst/nabu-dualboot-img): nabu dual-boot work.

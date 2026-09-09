@@ -15,7 +15,7 @@ Project Aloha UEFI
        └─ Android：EFI/Android/Reboot2Android.efi
 ```
 
-[`nixos/boot.nix`](../nixos/boot.nix) 使用 NixOS 原生配置：
+[`nixos/modules/system/boot.nix`](../nixos/modules/system/boot.nix) 使用 NixOS 原生配置：
 
 ```nix
 boot.loader.systemd-boot.enable = true;
@@ -79,14 +79,14 @@ Android 启动程序和 GopRotate 通过 `extraFiles` 部署，Android 菜单由
 `nixos-nabu.conf` 或 `/nixos/kernel`。初始镜像的文件也不能假定会全部被该安装器
 自动清理；确认不再有启动条目引用后才能手动处理。
 
-[`nixos/rootfs-image.nix`](../nixos/rootfs-image.nix) 将同一个系统闭包复制到 ext4，
+[`nixos/modules/build/rootfs-image.nix`](../nixos/modules/build/rootfs-image.nix) 将同一个系统闭包复制到 ext4，
 创建 `/init` 和初始 profile 链接，并在首次启动注册 Nix store 数据库。
 ESP 和 rootfs 必须来自同一套配置求值，不能随意混用两个发布或原生/交叉构建的产物。
 
 ## 代码入口
 
-- [`nixos/boot.nix`](../nixos/boot.nix)：引导器、DTB、Android、旋转驱动和启动日志。
-- [`nixos/hardware-nabu.nix`](../nixos/hardware-nabu.nix)：内核、驱动、固件、分区和设备服务。
-- [`nixos/configuration.nix`](../nixos/configuration.nix)：系统基础配置及模块组合。
-- [`nixos/niri.nix`](../nixos/niri.nix)、[`nixos/niri.kdl`](../nixos/niri.kdl)：当前桌面。
+- [`nixos/modules/system/boot.nix`](../nixos/modules/system/boot.nix)：引导器、DTB、Android、旋转驱动和启动日志。
+- [`nixos/modules/system/hardware-nabu.nix`](../nixos/modules/system/hardware-nabu.nix)：内核、驱动、固件、分区和设备服务。
+- [`nixos/configuration.nix`](../nixos/configuration.nix)（入口，模块见 `modules/{system,home,build}`）：系统基础配置及模块组合。
+- [`nixos/modules/system/desktop.nix`](../nixos/modules/system/desktop.nix)、[`nixos/modules/system/niri.kdl`](../nixos/modules/system/niri.kdl)：当前桌面。
 - [`flake.nix`](../flake.nix)、[`scripts/build-image.sh`](../scripts/build-image.sh)：构建与导出。

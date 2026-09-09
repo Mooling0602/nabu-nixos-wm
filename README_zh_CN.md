@@ -189,7 +189,7 @@ nabu 上的 Linux 也依赖多个社区持续推进固件、内核、设备服�
 - [Mooling0602/nabu-nixos-kde-config](https://github.com/Mooling0602/nabu-nixos-kde-config)：相关 nabu NixOS 实践尝试（但较为混乱，即将计划归档）
 - [Mooling0602/dms-starter](https://github.com/Mooling0602/dms-starter)：基于 DankMaterialShell 的完整 NixOS PC 桌面配置，面向 x86_64 架构和多设备管理（也即将增加支持 aarch64 架构）
 - [jhuang6451/nabu_fedora](https://github.com/jhuang6451/nabu_fedora)：镜像、内核配置、设备服务及硬件适配参考。
-- [nabu_fedora_packages](https://github.com/jhuang6451/nabu_fedora_packages)：设备软件包及引导资源；本仓库在 boot.nix 中固定了相应资源 fork 的版本与哈希。
+- [nabu_fedora_packages](https://github.com/jhuang6451/nabu_fedora_packages)：设备软件包及引导资源；本仓库在 nixos/modules/system/boot.nix 中固定了相应资源 fork 的版本与哈希。
 - [sm8150-mainline/linux](https://gitlab.com/sm8150-mainline/linux)：SM8150 系列主线内核工作。
 - [Project Aloha](https://github.com/Project-Aloha/mu_aloha_platforms)：设备 UEFI 固件。
 - [rodriguezst/nabu-dualboot-img](https://github.com/rodriguezst/nabu-dualboot-img)：nabu 双系统启动工作。

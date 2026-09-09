@@ -5,8 +5,8 @@
 当前 alpha 镜像已验证可以启动，但维护者仍报告偶发启动失败，原因尚未确定。
 以下记录用于定位问题，不代表已经修复。
 
-日志参数集中在 `nixos/boot.nix`；面板、背光及存储驱动的 initrd 加载顺序在
-`nixos/hardware-nabu.nix`。当前保留启动日志，关闭 Plymouth 启动画面，
+日志参数集中在 `nixos/modules/system/boot.nix`；面板、背光及存储驱动的 initrd 加载顺序在
+`nixos/modules/system/hardware-nabu.nix`。当前保留启动日志，关闭 Plymouth 启动画面，
 避免默认启用大量调试输出和强制提前接管屏幕。
 
 ## 能看到哪些阶段
