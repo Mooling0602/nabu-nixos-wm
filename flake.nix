@@ -132,6 +132,10 @@
           crossConfigFor =
             system:
             lib.nixosSystem {
+              # configuration.nix and home.nix consume `inputs`; without
+              # specialArgs the cross evaluation fails with
+              # "attribute 'inputs' missing" (native eval already had this).
+              specialArgs = { inherit inputs; };
               modules =
                 [
                   {
