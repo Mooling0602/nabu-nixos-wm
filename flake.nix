@@ -11,11 +11,15 @@
       url = "git+https://github.com/Mooling0602/xwayland-satellite";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Codex Desktop; consumes the upstream flake's own pinned nixpkgs so the
+    # Rust/Electron build stays on the toolchain the project tests against.
+    codex-desktop-linux.url = "github:ilysenko/codex-desktop-linux";
     nix-flatpak.url = "github:gmodena/nix-flatpak";
   };
 
   outputs =
-    inputs@{ self, nixpkgs, home-manager, nix-flatpak, xwayland-satellite, ... }:
+    inputs@{ self, nixpkgs, home-manager, nix-flatpak, xwayland-satellite
+    , codex-desktop-linux, ... }:
     let
       lib = nixpkgs.lib;
 
@@ -30,6 +34,8 @@
               {
                 xwayland-satellite =
                   xwayland-satellite.packages.${final.stdenv.hostPlatform.system}.xwayland-satellite;
+                codex-desktop =
+                  codex-desktop-linux.packages.${final.stdenv.hostPlatform.system}.codex-desktop;
               }
             )
           ];

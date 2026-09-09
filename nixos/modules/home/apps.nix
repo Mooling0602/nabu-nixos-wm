@@ -14,6 +14,8 @@
     google-chrome
     vscode
     gh
+    # Codex Desktop (github:ilysenko/codex-desktop-linux, via overlay in flake.nix)
+    codex-desktop
     kdePackages.ksshaskpass
     kdePackages.dolphin
     kdePackages.kate
