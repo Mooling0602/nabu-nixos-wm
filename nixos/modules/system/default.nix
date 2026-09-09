@@ -5,6 +5,7 @@
 {
   imports = [
     ./base.nix
+    ./locale.nix
     ./users.nix
     ./packages.nix
     ./network.nix
