@@ -23,11 +23,9 @@
     kdePackages.kdeconnect-kde
   ];
 
-  # Run the Electron-based Codex desktop on its native Wayland backend instead
-  # of XWayland (better HiDPI/touch behaviour on niri).  The package wrapper
-  # only applies its own x11 default when this variable is unset, so a
-  # per-launch override (e.g. CODEX_OZONE_PLATFORM=x11) still works.
-  home.sessionVariables.CODEX_OZONE_PLATFORM = "wayland";
+  # Codex Desktop is pinned to its native Wayland backend by patching the
+  # package's desktop entry in flake.nix (overlay); terminal launches can pass
+  # --ozone-platform=wayland explicitly.
 
   programs.vscode.enable = true;
 }

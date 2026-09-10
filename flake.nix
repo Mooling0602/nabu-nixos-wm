@@ -32,8 +32,21 @@
             (
               final: prev:
                 let
+                  # Patch the desktop entry to launch on the native Wayland
+                  # backend: an explicit --ozone-platform argument has the
+                  # highest priority in the runtime's start.sh and needs no
+                  # session environment.  postInstall is the last hook the
+                  # derivation runs (dontFixup is set upstream).
                   codexDesktopPkg =
-                    codex-desktop-linux.packages.${final.stdenv.hostPlatform.system}.codex-desktop;
+                    (codex-desktop-linux.packages.${final.stdenv.hostPlatform.system}.codex-desktop)
+                      .overrideAttrs
+                      (old: {
+                        postInstall = (old.postInstall or "") + ''
+                          substituteInPlace "$out/share/applications/codex-desktop.desktop" \
+                            --replace-fail "bin/codex-desktop %u" "bin/codex-desktop --ozone-platform=wayland %u" \
+                            --replace-fail "bin/codex-desktop --new-instance" "bin/codex-desktop --ozone-platform=wayland --new-instance"
+                        '';
+                      });
                 in
                 {
                   xwayland-satellite =
