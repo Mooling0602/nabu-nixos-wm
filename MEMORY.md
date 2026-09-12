@@ -95,16 +95,22 @@ nix build .#nabu-uki --print-out-paths   # 全量编译 ~50-60 分钟，需 ≥2
 ## 6. 文件导览
 
 ```
-flake.nix                     # nixosConfigurations.nabu + packages.{nabu-uki,nabu-kernel}
+flake.nix                     # 存储版本 → nixosConfigurations.{ext4,impermanent}-nabu（nabu 为 ext4 别名）+ packages.*-{esp,rootfs,kernel}
 pkgs/kernel/default.nix       # 内核（本会话重写的核心，见 §3.2）
+pkgs/kernel/patches/          # 本仓库内核补丁（0001 DSI blank、0002 ath10k MAC、0003 adreno 挂起、0004 ath10k recovery、0005 qcom-geni 挂起）
 pkgs/kernel/configs/extra-sm8150.config   # 设备附加 fragment（上游 sm8150.config 用树内版）
 pkgs/pd-mapper.nix            # andersson/pd-mapper（qrtr 服务链必需，nixpkgs 无此包）
 pkgs/nabu-firmware.nix        # pmOS 设备固件（adsp/cdsp/modem/wlan/触摸）
+pkgs/linux-firmware-nabu.nix  # 裁剪版 linux-firmware（nabu + 常用 USB，见文件头白名单）
 pkgs/alsa-ucm/                # SM8150 UCM 音频配置
 nixos/hardware-nabu.nix       # UFS/ESP 挂载、qrtr→pd-mapper→rmtfs/tqftpserv/q6voiced、RTC、ath10k、zram
 nixos/configuration.nix       # 用户 nabu、fcitx5、NetworkManager+iwd
-nixos/rootfs-image.nix        # 无特权 mke2fs ext4 rootfs 镜像
-scripts/build-image.sh        # esp/uki/rootfs 三种构建模式
+nixos/images/                 # system.build.{esp-image,rootfs-image}（esp / rootfs / make-filesystem-image / registration）
+nixos/storage/                # 存储版本模块（default / ext4 / impermanent）
+tests/filesystem-images.nix   # 镜像布局检查（真实镜像构建器 + 小闭包）
+tests/storage-boot.nix        # 两个存储版本的 QEMU 启动测试
+scripts/build-image.sh        # esp/rootfs 构建与导出
+docs/storage.md               # 存储版本、持久化目录与刷写说明
 docs/testing-uki.md           # 上机测试步骤与判定标准
 README.md / README_zh_CN.md   # 双语文档（启动链图、状态清单）
 ```

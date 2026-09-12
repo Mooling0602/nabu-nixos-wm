@@ -25,6 +25,20 @@ nix flake + home-manager
 
 Niri + Noctalia
 
+### Storage variants
+
+One NixOS configuration is exposed per storage layout:
+
+| Variant | `nixosConfigurations` key | Host name | Root filesystem |
+| --- | --- | --- | --- |
+| `ext4` | `ext4-nabu` (alias `nabu`, the default) | `nabu` | ext4 |
+| `impermanent` | `impermanent-nabu` | `impermanent-nabu` | tmpfs root with Btrfs persistence (experimental) |
+
+The host name of each system matches its `nixosConfigurations` key, so a short
+`nixos-rebuild switch --flake .` picks the profile that is actually installed.
+Storage and persistence settings: [storage guide](docs/storage.md) (Chinese).
+The impermanent variant still needs on-device validation.
+
 ### Hardware limitations
 
 | Area | Current limitation |
@@ -33,23 +47,36 @@ Niri + Noctalia
 | Low-power suspend | Not working; locking or blanking the display does not establish low-power operation |
 | Power key | Deliberately ignored pending usable screen-off and suspend/resume support |
 | Boot reliability | Boot sometimes fails; the cause is still under investigation |
-| Wi-Fi MAC address | A new random address is selected on every reboot; it does not remain stable across boots |
-| Wi-Fi hangs after idle | After long idle, ath10k_snoc detects an unresponsive firmware/WMI, recovery fails repeatedly, and Wi-Fi stops working until the driver is reloaded |
+| Wi-Fi hangs after idle | After long idle, ath10k_snoc detects an unresponsive firmware/WMI, recovery fails repeatedly, and Wi-Fi stops working until the driver is reloaded (cause located, upstream fix backported, on-device validation pending) |
 | Image size | The rootfs is large; reducing the closure and splitting configurations are priorities |
 
-The changing Wi-Fi MAC address may affect MAC-based DHCP reservations and network access
-rules. The behavior is confirmed, but its cause and a fix have not been verified. Other
-hardware needs fuller test records; enabling a driver in the configuration is not evidence
-of hardware validation. When reporting a problem, include the image version, firmware
-version, reproduction steps and logs; distinguish cold boots from warm reboots.
+The random Wi-Fi MAC address across reboots is now resolved: the generic
+board-2.bin carries no MAC, so a kernel patch
+(`pkgs/kernel/patches/0002-nabu-ath10k-mac-address.patch`) derives a stable
+locally-administered address from the SMBIOS board serial, overridable with the
+`ath10k_core.macaddr=` module parameter. The approach comes from
+[TwinbornPlate75/linux-nabu](https://github.com/TwinbornPlate75/linux-nabu).
+
+Other hardware needs fuller test records; enabling a driver in the
+configuration is not evidence of hardware validation. When reporting a problem,
+include the image version, firmware version, reproduction steps and logs;
+distinguish cold boots from warm reboots.
 
 Wi-Fi may hang after a long idle period: `ath10k_snoc` (WCN3990) detects an
 unresponsive firmware/WMI, attempts automatic recovery, and after repeated
 failures gives up (wedged state), leaving Wi-Fi unusable. The `WARN_ON` in
-`mac.c` seen in dmesg is the result of the failed recovery, not the root cause.
-The root cause is still under investigation and is suspected to relate to SNOC
-power management / WMI timeouts, not the firmware version (firmware is loaded
-via TQFTP and is already HL 3.2.0). Reload the driver manually to recover:
+`mac.c` is the symptom, not the root cause: the recovery bookkeeping in
+`ath10k` could mark the device `WEDGED` because of recoveries that never ran
+(the check ran synchronously on the QMI indication path and queued its work on
+the ordered workqueue, where later triggers were coalesced, so every trigger
+merely consumed a consecutive-failure credit), and `ath10k_start()` then fails
+permanently even though the interface was down. Upstream commit `f35a07a4842a`
+("wifi: ath10k: move recovery check logic into a new work") runs the check on
+its own workqueue and cancels it in `ath10k_stop()`; it is backported here as
+`pkgs/kernel/patches/0004-nabu-ath10k-recovery-check-workqueue.patch`. The
+firmware version is unrelated (firmware is loaded via TQFTP and is already
+HL 3.2.0). Until the backport has been validated on hardware, reload the
+driver manually to recover:
 
 ```sh
 # Option 1 (recommended): rebind the platform device, no extra tools needed
@@ -72,7 +99,9 @@ Restarting NetworkManager alone does not recover; the driver must be re-probed
 ## Important notes
 
 At the Noctalia greeter, both the default username and initial password are **`nabu`**.
-Run `passwd` after login. **TTY autologin and SSH password authentication are also
+For the ext4 variant, run `passwd` after login; the impermanent variant uses
+[declarative passwords](docs/storage.md#无状态版本的密码).
+**TTY autologin and SSH password authentication are also
 enabled**; adjust the configuration for ongoing personal use. Changing the password does
 not disable TTY autologin. Use `systemctl --failed` to inspect failed services,
 `findmnt /boot/efi` to check the ESP mount, and `bootctl list` to inspect boot entries.
@@ -102,7 +131,7 @@ boot files, so an earlier system configuration can be restored from the menu. Ex
 DTB loading has been verified in the current firmware environment with Secure Boot
 disabled; a UKI is no longer necessary to deliver the device tree.
 
-The project's `mkEsp` code still assembles the initial ESP with one generation.
+The project's `system.build.esp-image` code still assembles the initial ESP with one generation.
 Subsequent rebuilds use the nixpkgs systemd-boot installer to deploy and manage
 generations. Initial image files and old UKI/rEFInd files may not be cleaned up
 automatically; check retained entries before deleting them. See
@@ -172,9 +201,11 @@ nix build .#nabu-esp .#nabu-rootfs
 bash scripts/build-image.sh
 ```
 
-The only current NixOS configuration, `nixosConfigurations.nabu`, includes niri +
-Noctalia. `nabu-esp`, `nabu-rootfs` and `nabu-kernel` have `x86_64-linux` and
-`aarch64-linux` outputs; the default output is the ESP. The export script writes to a
+There are two NixOS configurations, `ext4-nabu` (aliased as `nabu`, the default) and
+`impermanent-nabu`; both include niri + Noctalia. Each variant exposes
+`<variant>-nabu-esp` and `<variant>-nabu-rootfs` for
+`x86_64-linux` and `aarch64-linux`; `nabu-esp`, `nabu-rootfs` and `nabu-kernel` are kept
+as the ext4 entry points, and the default output is the ESP. The export script writes to a
 fresh `result-images/build-*` directory and refuses to overwrite same-named artifacts.
 Build the ESP and rootfs together; do not mix artifacts from different commits,
 configurations or native/cross builds. Keep the working tree and lock file unchanged
@@ -205,6 +236,7 @@ for more troubleshooting and measurement methods.
 - [Builds, cross compilation and caches](docs/building.md)
 - [Boot architecture and generations](docs/architecture.md)
 - [On-device updates, rollback and cleanup](docs/usage-on-device.md)
+- [Storage variants and persistence](docs/storage.md)
 - [niri + Noctalia desktop](docs/desktop.md)
 - [Device status](docs/device-status.md) · [Boot logging diagnostics](docs/boot-logging.md)
 - [Roadmap](docs/roadmap.md) · [Contributing](CONTRIBUTING.md)

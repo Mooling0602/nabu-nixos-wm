@@ -4,7 +4,7 @@
 #
 # Boot chain on the device: UEFI (Project Aloha / DBKP) -> systemd-boot in ESP.
 # systemd-boot loads the EFI-stub kernel + initrd + DTB straight from the ESP
-# (no UKI); rootfs is identified by PARTLABEL=linux (ext4), ESP by
+# (no UKI); Linux storage is identified by PARTLABEL=linux, ESP by
 # PARTLABEL=esp.
 {
   config,
@@ -20,14 +20,17 @@
 
   # == Kernel =================================================================
   boot.kernelPackages = pkgs.linuxKernel.packagesFor pkgs.kernel-sm8150;
-  # root=PARTLABEL=linux is technically redundant under the systemd initrd
-  # (which boots with root=fstab from fileSystems."/"), but it boots fine on
-  # real hardware and documents the root device, so it is kept here.
+  # Root mounts are generated from the selected storage profile.
   boot.kernelParams = [
-    "root=PARTLABEL=linux"
     "rw"
     "systemd.gpt_auto=no"
     "cryptomgr.notests"
+    # Default to suspend-to-idle. Device suspend callbacks run identically in
+    # s2idle and deep mode, so the GPU quiesce abort is fixed by the adreno
+    # kernel patch (0003), not by this parameter; this only selects the
+    # lighter, firmware-independent sleep mode. Deep suspend via PSCI stays
+    # available for per-device testing through /sys/power/mem_sleep.
+    "mem_sleep_default=s2idle"
     # Explicit text console: the nabu DTB has no simple-framebuffer node, so
     # the kernel must attach fbcon to tty0 to render early boot logs on the
     # panel (otherwise fbcon may not bind and the screen stays black).
@@ -83,19 +86,6 @@
   ];
 
   # == Filesystems ============================================================
-  fileSystems."/" = {
-    device = "/dev/disk/by-partlabel/linux";
-    fsType = "ext4";
-    options = [
-      "rw"
-      "errors=remount-ro"
-      # The raw ext4 image is flashed into an already-sized GPT partition.
-      # Grow only the filesystem to that partition, exactly like Fedora's
-      # fstab; boot.growPartition would instead try to alter the device GPT.
-      "x-systemd.growfs"
-    ];
-  };
-
   fileSystems."/boot/efi" = {
     device = "/dev/disk/by-partlabel/esp";
     fsType = "vfat";
@@ -106,8 +96,23 @@
   };
 
   # == Firmware ===============================================================
-  hardware.enableRedistributableFirmware = true;
-  hardware.firmware = [ pkgs.xiaomi-nabu-firmware ];
+  # The stock linux-firmware package is 791 MiB compressed (1.8 GiB raw) and
+  # brings the whole firmware environment to ~827 MiB of the system closure,
+  # almost all of which is unusable here (x86 GPU/CPU-microcode/audio firmware,
+  # Intel and Atheros PCIe WiFi, datacenter NICs, other Qualcomm SoCs).
+  # linux-firmware-nabu keeps the onboard + common USB-device parts (88 MiB
+  # compressed; the firmware environment becomes 100 MiB); see
+  # pkgs/linux-firmware-nabu.nix for the keep list and the reasoning.
+  #
+  # Turning enableRedistributableFirmware off also disables
+  # wirelessRegulatoryDatabase by default, so it has to be enabled explicitly —
+  # otherwise WiFi loses regulatory.db.
+  hardware.enableRedistributableFirmware = false;
+  hardware.wirelessRegulatoryDatabase = true;
+  hardware.firmware = [
+    pkgs.linux-firmware-nabu
+    pkgs.xiaomi-nabu-firmware
+  ];
 
   # == Qualcomm remoteproc services ==========================================
   # Match Fedora's nabu preset: Linux 6.17 provides the QRTR name service and
@@ -225,6 +230,16 @@
     wifi.backend = "iwd";
   };
   networking.wireless.enable = false; # avoid wpa_supplicant conflict
+
+  # The generic board-2.bin carries no MAC, so the kernel patch
+  # (pkgs/kernel/patches/0002-nabu-ath10k-mac-address.patch) derives a stable
+  # locally-administered address from the SMBIOS board serial. If the boot
+  # firmware exposes no usable serial (or a fixed MAC is required, e.g. for a
+  # DHCP reservation), override it here with the per-device address:
+  #
+  #   boot.extraModprobeConfig = ''
+  #     options ath10k_core macaddr=00:11:22:33:44:55
+  #   '';
 
   # == Zram (matches reference: full-RAM size, zstd) ==========================
   zramSwap = {

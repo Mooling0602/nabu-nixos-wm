@@ -4,7 +4,7 @@
 
 当前发布为 [v0.1.0-alpha](https://github.com/hybrid-orbital/nixos-for-nabu/releases/tag/v0.1.0-alpha)，
 维护者已验证 niri + Noctalia 和 systemd-boot generation 菜单可用。
-仍有相机不可用、低功耗休眠未解决、偶发启动失败，以及每次重启 Wi-Fi MAC 地址变化，
+仍有相机不可用、低功耗休眠未解决和偶发启动失败（重启后随机 Wi-Fi MAC 地址问题已解决），
 见[设备状态](device-status.md)。
 
 ## 适用设备与已有环境
@@ -63,6 +63,9 @@ fastboot reboot
 
 当前 rootfs 会用 `x-systemd.growfs` 扩展 ext4 到已有 `linux` 分区大小，不修改 GPT，
 也不能把过小的分区变大。此流程将 ESP 的回退入口切换为 systemd-boot，不再使用 rEFInd。
+
+另有可选的 tmpfs root + Btrfs 镜像，构建、安装和更新方法见[存储说明](storage.md)。
+本页的 release 安装步骤继续使用传统 ext4 版本。
 
 ## 首次启动
 

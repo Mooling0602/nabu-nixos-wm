@@ -24,12 +24,14 @@ let
     postFixup = ''
       mv $out/bin/alsa-info.sh $out/bin/alsa-info
       wrapProgram $out/bin/alsa-info \
-        --prefix PATH : "${lib.makeBinPath [
-          pkgs.which
-          pkgs.pciutils
-          pkgs.procps
-          pkgs.tree
-        ]}" \
+        --prefix PATH : "${
+          lib.makeBinPath [
+            pkgs.which
+            pkgs.pciutils
+            pkgs.procps
+            pkgs.tree
+          ]
+        }" \
         --prefix PATH : $out/bin
     '';
   });
@@ -67,11 +69,17 @@ in
     ./hardware-nabu.nix
     ./boot.nix
     ./niri.nix
-    ./rootfs-image.nix
+    ./storage
+    ./images
   ];
 
   # == Identity ===============================================================
-  networking.hostName = "nabu";
+  # networking.hostName is set per storage variant in flake.nix: the ext4 system
+  # keeps "nabu" (the alias of ext4-nabu), the impermanent system uses
+  # "impermanent-nabu".  Both are nixosConfigurations keys/aliases, so the short
+  # `nixos-rebuild switch --flake .` resolves to the profile that is actually
+  # installed instead of silently picking the ext4 config on the impermanent
+  # system (which would produce an unbootable root).
   system.stateVersion = "25.11";
 
   # == Users ==================================================================
@@ -85,7 +93,7 @@ in
       # TouchpadEmulator reads /dev/input/* and writes /dev/uinput
       "input"
     ];
-    initialPassword = "nabu";
+    initialPassword = lib.mkDefault "nabu";
   };
 
   # == Home Manager (per-user packages; see nixos/home.nix) ===================
@@ -102,10 +110,19 @@ in
   services.flatpak.enable = true;
 
   # == Nix ====================================================================
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+    # Prebuilt nabu kernel and images.  The extra-* options add this cache on
+    # top of the nixpkgs defaults instead of replacing cache.nixos.org.
+    extra-substituters = [ "https://nix-nabu.cachix.org" ];
+    extra-trusted-public-keys = [
+      "nix-nabu.cachix.org-1:6oBp/ANDnp5za8MMMfz6EpkJbN1jaRlRpPIoKL4tCGM="
+    ];
+    trusted-users = ["root" "@wheel"];
+  };
   nixpkgs.config.allowUnfree = true;
 
   # This is a bring-up image, and cross-building the NixOS manuals pulls in a
@@ -154,7 +171,6 @@ in
     direnv
     clash-verge-rev
     mission-center
-    touchpad-emulator
   ];
 
   programs.clash-verge = {
@@ -174,33 +190,37 @@ in
   services.power-profiles-daemon.enable = true;
   services.upower.enable = true;
 
-  # == TouchpadEmulator ========================================================
-  # Touchscreen-as-touchpad emulator (pkgs.touchpad-emulator).  nabu's input
-  # devices (touchscreen "NVTCapacitiveTouchScreen", buttons "gpio-keys" and
-  # "pm8941_resin") match the program's built-in device table, so it works
-  # without patches.  It needs: the uinput module for the virtual mouse
-  # device, permission for the `input` group on /dev/uinput (upstream's
-  # LaunchTouchpadEmulator.sh instead uses a pkexec chmod hack), and the user
-  # in `input` (above).  Volume keys still reach the desktop because the
-  # program forwards quick taps as volume events.
-  boot.kernelModules = [ "uinput" ];
-  services.udev.extraRules = ''
-    # TouchpadEmulator: allow the `input` group to create the virtual mouse
-    # device.  Mirrors upstream's 10-uinput.rules.
-    KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input"
-  '';
-
   networking.networkmanager.package = networkManagerNabu;
   networking.modemmanager.enable = false;
 
-  # Produce an uncompressed raw ext4 .img — directly flashable via
-  # `fastboot flash linux nabu-rootfs.ext4.img`
+  # Produce an uncompressed filesystem image for `fastboot flash linux`.
   nabu.image.compress = false;
 
   # Tablet power key: neither suspend nor power off. Screen on/off is left to
   # the compositor (niri) and the kernel, avoiding suspend on nabu causing a
   # brief "lights on then off" glitch.
   services.logind.settings.Login.HandlePowerKey = "ignore";
+
+  # == Suspend debugging ======================================================
+  # nabu wakes from s2idle within ~1s and the wake source is not visible with
+  # the default configuration. The kernel-side debug facilities (PM_DEBUG
+  # sysfs attributes, suspend/wakeup/irq tracepoints) are compiled into every
+  # kernel — see pkgs/kernel/default.nix — while this specialisation adds a
+  # separate boot entry (systemd-boot menu, title suffixed "suspend-debug")
+  # carrying the extra kernel command line needed to catch the wake IRQ:
+  #   pm_debug_messages  - verbose PM core messages during suspend/resume
+  #   no_console_suspend - keep the console alive through late/noirq phases
+  #   initcall_debug     - log initcall/device PM callback timing
+  # Boot the "suspend-debug" entry from the systemd-boot menu to debug; the
+  # default entry stays untouched. Remove this block once the wake source is
+  # identified and fixed.
+  specialisation."suspend-debug".configuration = {
+    boot.kernelParams = [
+      "pm_debug_messages"
+      "no_console_suspend"
+      "initcall_debug"
+    ];
+  };
 
   # The system is stateless enough for this; speeds up shutdown
   systemd.settings.Manager.DefaultTimeoutStopSec = "10s";
